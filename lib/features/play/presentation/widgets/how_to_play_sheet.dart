@@ -20,9 +20,17 @@ class HowToPlaySheet extends StatelessWidget {
     (icon: HugeIcons.strokeRoundedSmile, text: "Crack a smile at the wrong moment and you lose the round on the spot."),
   ];
 
+  /// [useRootNavigator]: true is the fix for a real bug, not a style choice
+  /// — each tab has its own nested [Navigator] (Section 5, for per-tab
+  /// back-stacks), and `AppShellScreen` paints `FloatingNavBar` as a Stack
+  /// sibling *after* those nested navigators. A sheet pushed on the tab's
+  /// own Navigator therefore renders underneath the nav bar, not above it.
+  /// Pushing on the root Navigator instead puts the sheet above the entire
+  /// shell, nav bar included.
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const HowToPlaySheet(),
@@ -32,6 +40,7 @@ class HowToPlaySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: palette.cardBackground,
@@ -39,24 +48,27 @@ class HowToPlaySheet extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text('How to Play', style: AppTextStyles.headline.copyWith(color: Colors.black87)),
-              const SizedBox(height: 16),
-              for (final rule in _rules) _RuleRow(icon: rule.icon, text: rule.text, accent: palette.gradientMid),
-            ],
+                const SizedBox(height: 20),
+                Text('How to Play', style: AppTextStyles.headline.copyWith(color: Colors.black87)),
+                const SizedBox(height: 16),
+                for (final rule in _rules) _RuleRow(icon: rule.icon, text: rule.text, accent: palette.gradientMid),
+              ],
+            ),
           ),
         ),
       ),

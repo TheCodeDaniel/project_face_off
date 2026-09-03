@@ -16,9 +16,14 @@ class OfflineBottomSheet extends StatelessWidget {
 
   final VoidCallback onRetry;
 
+  /// [useRootNavigator]: true — a tab's own nested [Navigator] sits below
+  /// `FloatingNavBar` in the shell's Stack paint order, so a sheet pushed on
+  /// it would render underneath the nav bar. See the identical note on
+  /// `HowToPlaySheet.show`.
   static Future<void> show(BuildContext context, {required VoidCallback onRetry}) {
     return showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isDismissible: true,
       enableDrag: true,
       backgroundColor: Colors.white,
