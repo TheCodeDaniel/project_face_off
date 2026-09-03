@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:project_face_off/core/extensions/size_extensions.dart';
 
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
@@ -56,7 +57,8 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     final myCode = ref.watch(friendsRepositoryProvider).myInviteCode;
 
-    return DecoratedBox(
+    return Container(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       decoration: BoxDecoration(
         color: palette.cardBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -122,7 +124,8 @@ class _RequestSentConfirmation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const green = Color(0xFF2FAE66);
-    return Padding(
+    return Container(
+      width: context.screenWidth,
       key: const ValueKey('sent'),
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
@@ -130,7 +133,7 @@ class _RequestSentConfirmation extends StatelessWidget {
         children: [
           const AppIcon(HugeIcons.strokeRoundedCheckmarkCircle02, color: green, size: 40),
           const SizedBox(height: 10),
-          Text('Request sent!', style: AppTextStyles.headline.copyWith(color: green, fontSize: 18)),
+          Text('Request sent! 👍', style: AppTextStyles.headline.copyWith(color: green, fontSize: 18)),
         ],
       ),
     );
