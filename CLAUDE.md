@@ -225,6 +225,45 @@ site. Frosted white reads clearly at any point on the gradient.
   — the generator always yields the current snapshot immediately, so no race. See
   `test/features/friends/data/fake_friends_repository_test.dart`.
 
+## Rest of Profile tab (Section 10)
+
+- `ProfileRepository` (`lib/features/profile/domain/`) + `FakeProfileRepository` cover profile
+  stats, leaderboard, cosmetics, and subscription tier — same fake-backend pattern as every other
+  feature. Seeded with the **signed-in player's own display name** (read from `authStateProvider`
+  in `profile_providers.dart`), not a hardcoded string, so the whole demo reads coherently —
+  Profile shows whoever you actually signed in as.
+- `friendsCount` on the seeded profile is a static demo number, not derived from
+  `FriendsRepository` — features never reach into each other's internals (engineering rule 1); a
+  real implementation would read this off the player's own Firestore document, which the friends
+  feature keeps in sync, not off `FriendsRepository` directly.
+- Leaderboard ranking metric is **total round wins**, documented explicitly on `ProfileRepository`
+  per the master prompt's own instruction not to leave the scoring metric implicit.
+- `equipCosmetic` is a genuine no-op when given an unowned/unknown cosmetic id — worth calling out
+  because the first version of this method had a real bug: it looped over *owned* cosmetics setting
+  `equipped: c.id == cosmeticId`, which for an unowned target id meant **every** owned cosmetic
+  failed that check and got unequipped, silently clearing the equipped slot instead of doing
+  nothing. Caught by a test asserting the previously-equipped item stayed equipped after trying to
+  equip a locked one — worth remembering as a shape of bug: a "set the matching one true, others
+  false" loop is only a no-op for a not-found id if you check for that case *before* the loop.
+- Notifications toggle (`NotificationSettingsController` + `LocalNotificationSettings`) is a
+  device-local `shared_preferences` setting, deliberately not folded into `ProfileRepository` — same
+  reasoning as onboarding-seen being separate from auth state. No push-notification wiring exists
+  yet; this only persists the toggle itself.
+- Sign out / delete account reuse `AuthRepository.signOut()`/`.deleteAccount()` from Section 6
+  directly — `DeleteAccountDialog` only confirms intent, matching `QuitMatchDialog`'s pattern.
+- `PaywallScreen` is real UI (perks list, tier framing) with no live purchase button — RevenueCat
+  isn't wired up yet (Section 11). `SubscriptionSection`'s "Manage Subscription" shows a snackbar
+  pointing at platform settings rather than deep-linking, for the same reason.
+- `FaqSupportScreen`'s support contact is a real `mailto:` intent via `url_launcher`, with a
+  fallback snackbar if no mail client is configured — per the master prompt's instruction to
+  "pick one and implement it fully, don't leave a dead-end button."
+- **Widget-test gotcha**: a `ProfileScreen`-sized scrollable is taller than the test binding's
+  default surface, so most of its content is genuinely below the fold — `find.text`'s default
+  `skipOffstage: true` then reports "0 widgets found" for content that actually rendered fine.
+  Fix is `tester.view.physicalSize` set tall enough before pumping (see
+  `test/features/profile/presentation/profile_screen_test.dart`), not `skipOffstage: false`
+  scattered across assertions.
+
 ## What's stubbed pending your credentials
 
 These need accounts/config only you can provide — implemented behind clean interfaces so the rest
@@ -250,5 +289,6 @@ of the app builds and runs today, but not live-wired:
 Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
 **Play/matchmaking (done, against a fake matchmaking repo)** →
 **duel engine (done — playable end-to-end via the dev gesture-controls harness, pending real
-camera + networking)** → **Friends (done, against a fake friends repo)** → Profile → monetization →
-offline handling → performance pass.
+camera + networking)** → **Friends (done, against a fake friends repo)** →
+**Profile (done, against a fake profile repo — paywall UI built, live purchases pending
+RevenueCat)** → monetization → offline handling → performance pass.
