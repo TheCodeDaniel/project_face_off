@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
+import '../../../../core/widgets/app_icon.dart';
 import '../../../../core/widgets/pin_code_entry.dart';
 import '../friends_providers.dart';
 
@@ -35,7 +39,13 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
     setState(() => _error = null);
     try {
       await ref.read(friendsRepositoryProvider).sendRequestByCode(code);
-      if (mounted) setState(() => _sent = true);
+      if (!mounted) return;
+      setState(() => _sent = true);
+      // Auto-close once the confirmation has had a moment to register —
+      // nothing left for the player to do here once a request is sent.
+      Timer(const Duration(milliseconds: 1300), () {
+        if (mounted) Navigator.of(context).pop();
+      });
     } catch (_) {
       if (mounted) setState(() => _error = "That code didn't work — double-check and try again.");
     }
@@ -70,24 +80,58 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
               const SizedBox(height: 4),
               Text(myCode, style: AppTextStyles.numericLarge.copyWith(color: palette.gradientStart, fontSize: 30)),
               const SizedBox(height: 24),
-              Text('Enter a friend\'s code', style: AppTextStyles.label.copyWith(color: Colors.black45)),
-              const SizedBox(height: 12),
-              _sent
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        'Request sent!',
-                        style: AppTextStyles.headline.copyWith(color: const Color(0xFF2FAE66), fontSize: 18),
-                      ),
-                    )
-                  : PinCodeEntry(onCompleted: _submitCode),
-              if (_error != null) ...[
-                const SizedBox(height: 10),
-                Text(_error!, style: AppTextStyles.label.copyWith(color: Colors.red)),
-              ],
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: _sent ? const _RequestSentConfirmation() : _CodeEntry(error: _error, onCompleted: _submitCode),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CodeEntry extends StatelessWidget {
+  const _CodeEntry({required this.error, required this.onCompleted});
+
+  final String? error;
+  final ValueChanged<String> onCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const ValueKey('entry'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Enter a friend\'s code', style: AppTextStyles.label.copyWith(color: Colors.black45)),
+        const SizedBox(height: 12),
+        PinCodeEntry(onCompleted: onCompleted),
+        if (error != null) ...[
+          const SizedBox(height: 10),
+          Text(error!, style: AppTextStyles.label.copyWith(color: Colors.red)),
+        ],
+      ],
+    );
+  }
+}
+
+class _RequestSentConfirmation extends StatelessWidget {
+  const _RequestSentConfirmation();
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF2FAE66);
+    return Padding(
+      key: const ValueKey('sent'),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AppIcon(HugeIcons.strokeRoundedCheckmarkCircle02, color: green, size: 40),
+          const SizedBox(height: 10),
+          Text('Request sent!', style: AppTextStyles.headline.copyWith(color: green, fontSize: 18)),
+        ],
       ),
     );
   }

@@ -194,6 +194,14 @@ site. Frosted white reads clearly at any point on the gradient.
   out of scope until Firebase exists.
 - Add-friend reuses `PinCodeEntry` (Section 4) for entering a friend's code; any 6-digit code
   succeeds against the fake repo since there's no real backend to resolve one against yet.
+  `sendRequestByCode` deliberately does **not** mutate the local player's own incoming-requests
+  list on success — a real outgoing request lands in the *other* person's inbox, not yours, and
+  with only one simulated user there's no second inbox to add it to. An earlier version got this
+  backwards (added a bogus request from a hardcoded "Zara" as a side effect of sending one), which
+  made a stray incoming request appear right after tapping "send" — caught from a screenshot, fixed,
+  and pinned down with a regression test. `AddFriendSheet`'s success state is a proper icon+text
+  confirmation (`AnimatedSwitcher` crossfade, auto-dismiss after ~1.3s) rather than a bare line of
+  green text swapped in for the PIN boxes — the first version left an ugly abrupt layout jump.
 - `FloatingNavBar`'s Friends icon carries a live badge from `incomingRequestsCountProvider` — this
   is why it had to become a `ConsumerStatefulWidget`.
 - Report flow requires picking one of a fixed `ReportReason` (master prompt Section 9 — not just

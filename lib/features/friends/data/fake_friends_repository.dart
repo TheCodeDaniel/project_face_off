@@ -8,8 +8,15 @@ import '../domain/report_reason.dart';
 /// In-memory [FriendsRepository] used until a real Firebase project exists
 /// (see CLAUDE.md). Seeded with a couple of friends and one incoming request
 /// so the UI has something to show in dev builds; any 6-digit code sent via
-/// [sendRequestByCode] succeeds and adds a fake friend, since there's no
-/// real backend to resolve a code against yet.
+/// [sendRequestByCode] succeeds, since there's no real backend to resolve a
+/// code against yet — it just completes without mutating local state.
+/// **Not** the local player's own incoming-requests list: a real outgoing
+/// request lands in the *other* person's inbox, not yours, and with only one
+/// simulated user there's no second inbox to add it to. An earlier version
+/// of this fake incorrectly added a bogus incoming request as a side effect
+/// of sending one — that's backwards and confusing (it made a stray "Zara
+/// wants to be friends" appear right after you sent a request), so it's
+/// gone.
 class FakeFriendsRepository implements FriendsRepository {
   FakeFriendsRepository() {
     _friends.addAll(const [
@@ -51,8 +58,6 @@ class FakeFriendsRepository implements FriendsRepository {
     if (code.trim().length != 6) {
       throw ArgumentError('Invite codes are 6 digits.');
     }
-    _requests.add(FriendRequest(id: 'r${_nextId++}', fromDisplayName: 'Zara'));
-    _emit();
   }
 
   @override

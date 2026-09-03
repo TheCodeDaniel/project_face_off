@@ -20,6 +20,19 @@ void main() {
       expect(repo.sendRequestByCode('123'), throwsArgumentError);
     });
 
+    test('sendRequestByCode does not add a bogus incoming request for the local player', () async {
+      // A real outgoing request lands in the *other* person's inbox, not
+      // yours — an earlier version of this fake incorrectly added one to
+      // your own incoming-requests list as a side effect of sending one.
+      final repo = FakeFriendsRepository();
+      final requestsBefore = await repo.watchIncomingRequests().first;
+
+      await repo.sendRequestByCode('482913');
+
+      final requestsAfter = await repo.watchIncomingRequests().first;
+      expect(requestsAfter.length, requestsBefore.length);
+    });
+
     test('acceptRequest moves the request into the friends list', () async {
       final repo = FakeFriendsRepository();
       final requestsBefore = await repo.watchIncomingRequests().first;
