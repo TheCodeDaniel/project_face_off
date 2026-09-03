@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:showcaseview/showcaseview.dart';
 
+import '../../../core/onboarding_tour/tour_keys.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/coin_badge.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
@@ -38,7 +40,13 @@ class PlayScreen extends StatelessWidget {
               const SizedBox(height: 24),
               const _OnlineIndicator(count: 0),
               const SizedBox(height: 32),
-              PrimaryPillButton(label: 'Quick Match', icon: HugeIcons.strokeRoundedZap, onPressed: () {}),
+              Showcase(
+                key: TourKeys.quickMatch,
+                title: 'Quick Match',
+                description: 'Jump into a random duel the moment you\'re ready.',
+                targetBorderRadius: BorderRadius.circular(999),
+                child: PrimaryPillButton(label: 'Quick Match', icon: HugeIcons.strokeRoundedZap, onPressed: () {}),
+              ),
               const SizedBox(height: 12),
               SecondaryPillButton(label: 'How to Play', icon: HugeIcons.strokeRoundedHelpCircle, onPressed: () {}),
             ],

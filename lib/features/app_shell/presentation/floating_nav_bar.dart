@@ -2,7 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:showcaseview/showcaseview.dart';
 
+import '../../../core/onboarding_tour/tour_keys.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/lobby_palette.dart';
 import '../../../core/widgets/app_icon.dart';
@@ -31,6 +33,11 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
     (icon: HugeIcons.strokeRoundedUserGroup, label: 'Friends'),
     (icon: HugeIcons.strokeRoundedUserCircle02, label: 'Profile'),
   ];
+
+  /// Product-tour targets (master prompt Section 6) — Friends and Profile
+  /// entry points. `null` for Play since its tour target is the Quick Match
+  /// button on that tab's own content, not the nav item.
+  List<GlobalKey?> get _tourKeys => [null, TourKeys.friendsNav, TourKeys.profileNav];
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +84,8 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                         selected: widget.currentIndex == i,
                         accent: palette.gradientMid,
                         onTap: () => widget.onTabSelected(i),
+                        showcaseKey: _tourKeys[i],
+                        showcaseTitle: _items[i].label,
                       ),
                   ],
                 ),
@@ -96,6 +105,8 @@ class _NavItem extends StatelessWidget {
     required this.selected,
     required this.accent,
     required this.onTap,
+    this.showcaseKey,
+    this.showcaseTitle,
   });
 
   final List<List<dynamic>> icon;
@@ -103,10 +114,12 @@ class _NavItem extends StatelessWidget {
   final bool selected;
   final Color accent;
   final VoidCallback onTap;
+  final GlobalKey? showcaseKey;
+  final String? showcaseTitle;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final button = InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: AnimatedContainer(
@@ -134,6 +147,16 @@ class _NavItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    final key = showcaseKey;
+    if (key == null) return button;
+    return Showcase(
+      key: key,
+      title: showcaseTitle,
+      description: 'Check out $showcaseTitle',
+      targetShapeBorder: const CircleBorder(),
+      child: button,
     );
   }
 }

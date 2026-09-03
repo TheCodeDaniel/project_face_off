@@ -81,6 +81,32 @@ site. Frosted white reads clearly at any point on the gradient.
   `crackDetected`) — never raw blendshape numbers. That separation is what makes it unit-testable
   without a camera or Firebase (see `test/features/duel/domain/`).
 
+## Onboarding & Auth (Section 6)
+
+- `AuthRepository` (`lib/features/auth/domain/`) is the contract the whole app depends on;
+  `FakeAuthRepository` (`lib/features/auth/data/`) backs it until Firebase exists — sign-in always
+  succeeds after a simulated delay, so the full onboarding → sign-in → shell flow is exercisable
+  today (see `test/app_root_test.dart`). Swap the `authRepositoryProvider` override for a
+  Firebase-backed implementation once `flutterfire configure` has been run; `AppUser`'s field set
+  deliberately mirrors Firebase Auth's `User` so that swap is a data-mapping change, not an API one.
+- `AppRoot` (`lib/main.dart`) gates the shell on `authStateProvider`: signed in → `AppShellScreen`;
+  signed out + never onboarded → `OnboardingScreen` (full welcome sequence ending in sign-in);
+  signed out + already onboarded → the compact `SignInScreen`. "Onboarding seen" and "tour seen"
+  are both persisted locally via `shared_preferences` (`LocalOnboardingRepository`), independent of
+  auth state, so neither replays after the first session even offline.
+- **No Lottie assets exist yet** (no design files were provided) — `OnboardingIllustration`
+  (`lib/features/onboarding/presentation/widgets/`) renders an animated icon-on-glass illustration
+  instead and is the single documented drop-in point: swap its body for `Lottie.asset(...)` once
+  real `assets/lottie/*.json` files exist, no other file needs to change.
+- **Product tour simplification**: the master prompt asks for a `showcaseview` tour highlighting
+  the Play tab's quick-match button, the Friends tab's add-friend action, and the Profile tab's
+  subscription entry point — three targets on three different tabs. Cross-tab showcasing would
+  require the shell to programmatically switch tabs mid-tour, which added real complexity for a
+  polish feature, so the shipped version showcases three targets all reachable from the Play tab:
+  the Quick Match button plus the Friends and Profile nav items themselves (as the discoverable
+  entry points into those sections). `TourKeys` (`lib/core/onboarding_tour/`) holds the shared
+  `GlobalKey`s so `app_shell` and `play` don't reach into each other's internals to wire it up.
+
 ## What's stubbed pending your credentials
 
 These need accounts/config only you can provide — implemented behind clean interfaces so the rest
@@ -89,7 +115,8 @@ of the app builds and runs today, but not live-wired:
 - **Firebase** (`firebase_auth`, `cloud_firestore`, `firebase_database`) — needs
   `flutterfire configure` run against your Firebase project. Auth/profile/matchmaking/signaling
   code is written against repository interfaces in each feature's `data/`; swap in real
-  implementations once `firebase_options.dart` exists.
+  implementations once `firebase_options.dart` exists. `AuthRepository`/`FakeAuthRepository` above
+  is the auth half of this.
 - **RevenueCat** (`purchases_flutter` + RevenueCat Ads) — needs your API keys and an Offerings
   catalog configured in the RevenueCat dashboard before the store/paywall can fetch real products.
 - **MediaPipe Face Landmarker** — `lib/core/gesture_engine/` defines the blendshape stream
@@ -97,8 +124,11 @@ of the app builds and runs today, but not live-wired:
   on-device validation of blendshape output (`browInnerUp`, `jawOpen`, mouth-curvature) before
   committing to a package vs. hand-rolled channel, per the master prompt's own instruction not to
   assume.
+- **Lottie onboarding illustrations** — no design assets provided; see `OnboardingIllustration`
+  above for the drop-in point once real `.json` files exist.
 
 ## Build order (from master prompt, keep committing per section)
 
-Scaffold → design system → app shell → auth/onboarding → Play/matchmaking → duel engine → Friends
-→ Profile → monetization → offline handling → performance pass.
+Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
+Play/matchmaking → duel engine → Friends → Profile → monetization → offline handling →
+performance pass.
