@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -6,12 +8,16 @@ import '../theme/match_palette.dart';
 import 'app_icon.dart';
 
 /// The dramatic pre-match beat (Blueprint Section 1, Image 6 / rock-paper-
-/// scissors reference): two avatars slide in from opposite edges, collide at a
-/// "VS" mark with a camera-shake-style micro animation, then a countdown
-/// starts. The duel feature triggers this precisely once both players are
-/// confirmed connected, via [controller]. Demo:
+/// scissors reference): two avatars slide in from opposite edges and collide
+/// at a "VS" mark with a soft impact flash and a brief, smoothly-decaying
+/// camera shake, then a countdown starts. The duel feature triggers this
+/// precisely once both players are confirmed connected, via [controller].
+///
+/// The shake is a continuous decaying sine wave, not a toggled offset — a
+/// discrete on/off jitter reads as janky rather than a real camera-shake
+/// impact. Demo:
 /// ```dart
-/// final controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+/// final controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
 /// DuelVsTransition(controller: controller, leftLabel: 'You', rightLabel: 'Ama', onComplete: () {});
 /// ```
 class DuelVsTransition extends StatefulWidget {
@@ -50,16 +56,25 @@ class _DuelVsTransitionState extends State<DuelVsTransition> {
     super.dispose();
   }
 
+  /// Smooth 0→1→0 bump centered on the collision moment — used to shape the
+  /// shake, the impact flash, and the avatar "punch" scale so they all peak
+  /// together instead of drifting independently.
+  static double _impactEnvelope(double t) {
+    const start = 0.48, end = 0.82;
+    if (t < start || t > end) return 0;
+    return math.sin((t - start) / (end - start) * math.pi);
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<MatchPalette>() ?? MatchPalette.standard;
     final slideIn = CurvedAnimation(
       parent: widget.controller,
-      curve: const Interval(0, 0.7, curve: Curves.easeOutBack),
+      curve: const Interval(0, 0.6, curve: Curves.easeOutCubic),
     );
-    final shake = CurvedAnimation(
+    final vsPop = CurvedAnimation(
       parent: widget.controller,
-      curve: const Interval(0.7, 0.85, curve: Curves.elasticIn),
+      curve: const Interval(0.48, 0.88, curve: Curves.elasticOut),
     );
 
     return DecoratedBox(
@@ -67,25 +82,72 @@ class _DuelVsTransitionState extends State<DuelVsTransition> {
       child: AnimatedBuilder(
         animation: widget.controller,
         builder: (context, _) {
-          final shakeOffset = Offset(8 * (1 - shake.value) * ((shake.value * 20).floor().isEven ? 1 : -1), 0);
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Transform.translate(
-                offset: Offset(-300 * (1 - slideIn.value) + shakeOffset.dx, 0),
-                child: _CombatantLabel(label: widget.leftLabel, color: palette.neonViolet),
-              ),
-              Transform.translate(
-                offset: Offset(300 * (1 - slideIn.value) - shakeOffset.dx, 0),
-                child: _CombatantLabel(label: widget.rightLabel, color: palette.neonCyan),
-              ),
-              Opacity(
-                opacity: slideIn.value.clamp(0, 1),
-                child: Text('VS', style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 44)),
-              ),
-            ],
+          final t = widget.controller.value;
+          final envelope = _impactEnvelope(t);
+          final shakeX = math.sin(t * 46) * 5 * envelope;
+          final shakeY = math.sin(t * 63 + 1.2) * 2.5 * envelope;
+          final punch = 1 + 0.1 * envelope;
+
+          return Transform.translate(
+            offset: Offset(shakeX, shakeY),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _ImpactFlash(strength: envelope, color: palette.neonCyan),
+                Transform.translate(
+                  offset: Offset(-260 * (1 - slideIn.value), 0),
+                  child: Transform.scale(
+                    scale: punch,
+                    child: _CombatantLabel(label: widget.leftLabel, color: palette.neonViolet),
+                  ),
+                ),
+                Transform.translate(
+                  offset: Offset(260 * (1 - slideIn.value), 0),
+                  child: Transform.scale(
+                    scale: punch,
+                    child: _CombatantLabel(label: widget.rightLabel, color: palette.neonCyan),
+                  ),
+                ),
+                Opacity(
+                  opacity: slideIn.value.clamp(0, 1),
+                  child: Transform.scale(
+                    scale: 0.4 + 0.6 * vsPop.value,
+                    child: Text('VS', style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 44)),
+                  ),
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Soft radial burst at the collision moment — reads as "impact" without
+/// relying on screen jitter to sell it.
+class _ImpactFlash extends StatelessWidget {
+  const _ImpactFlash({required this.strength, required this.color});
+
+  final double strength;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (strength <= 0) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: Container(
+        width: 160 + 220 * strength,
+        height: 160 + 220 * strength,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withValues(alpha: 0.35 * strength),
+              color.withValues(alpha: 0),
+            ],
+          ),
+        ),
       ),
     );
   }

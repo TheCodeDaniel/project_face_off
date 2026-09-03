@@ -18,7 +18,7 @@ class MatchFoundScreen extends StatefulWidget {
 }
 
 class _MatchFoundScreenState extends State<MatchFoundScreen> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
 
   @override
   void dispose() {
