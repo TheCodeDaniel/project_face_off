@@ -182,4 +182,47 @@ void main() {
       expect(matchResult.scores[playerA], 3);
     });
   });
+
+  group('round number tracking', () {
+    test('starts at 1 and increments on advance to a new round', () {
+      final e = engine();
+      expect(e.roundNumber, 1);
+
+      reachCueFired(e);
+      final fireAt = t0.add(const Duration(seconds: 2));
+      e.onFireGesture(playerA, fireAt);
+      e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
+      e.advanceAfterRecap();
+
+      expect(e.roundNumber, 2);
+    });
+
+    test('a draw still consumes a round (unlike scores, which stay unchanged)', () {
+      final e = engine();
+      reachCueFired(e);
+      e.checkRoundTimeout(t0.add(const Duration(seconds: 11)));
+      expect((e.state as RoundResultRoundState).outcome.isDraw, isTrue);
+
+      e.advanceAfterRecap();
+
+      expect(e.roundNumber, 2);
+      expect(e.scores[playerA], 0);
+      expect(e.scores[playerB], 0);
+    });
+
+    test('does not increment past the round that ends the match', () {
+      final e = engine();
+      for (var i = 0; i < 3; i++) {
+        e.startNeutralPhase();
+        reachCueFired(e);
+        final fireAt = t0.add(const Duration(seconds: 2));
+        e.onFireGesture(playerA, fireAt);
+        e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
+        e.advanceAfterRecap();
+      }
+
+      expect(e.state, isA<MatchResultRoundState>());
+      expect(e.roundNumber, 3);
+    });
+  });
 }

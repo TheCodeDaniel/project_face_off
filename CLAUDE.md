@@ -191,6 +191,24 @@ site. Frosted white reads clearly at any point on the gradient.
     `find.byType(Navigator).last`, not `.first` — `MaterialApp` builds its own outer `Navigator`
     around `home`, so `.first` grabs that one instead of the inner one actually hosting the screen
     under test, and `maybePop()` on the wrong Navigator is a silent no-op.
+- **Explicit exit control, not just `PopScope`**: iOS has no system back button, and the edge-swipe
+  gesture that would normally trigger a `PopScope` pop isn't an obviously discoverable affordance
+  mid-match — a player could get stuck on `DuelScreen` with no visible way out. `DuelMatchHeader`
+  carries an always-visible exit button (top-left) wired to the exact same `_handlePopAttempt` flow
+  as the gesture, not a silent bypass — still shows `QuitMatchDialog` while a round is live. Any
+  full-screen route that blocks a system back gesture this way needs the same explicit affordance;
+  don't rely on `PopScope` alone being discoverable.
+- **`DuelMatchHeader`** (replacing the original `DuelScoreboardPanel`) is a from-scratch redesign
+  based on a user-supplied reference: "Round N" + running score in a slim top row, two minimal
+  ring-and-dot "face" avatars either side of "vs" below it — no camera-driven expressions exist yet,
+  so this is a deliberately abstract placeholder rather than trying to fake a real face. Needed a
+  new `roundNumber` counter on `DuelRoundEngine` (1-indexed, increments in `advanceAfterRecap`) since
+  draws consume a round without moving `scores`, so round number can't be inferred from score sums.
+- **Verification technique for a screen buried behind gameplay** (matchmaking → transition → duel):
+  same throwaway-entry-point approach documented in the Profile section below —
+  `lib/_debug_..._preview.dart` + `flutter run -t <file>` straight to the widget, deleted after.
+  Confirmed the header/exit-button design this way in under a minute instead of fighting simulator
+  coordinate-tap automation through three prior screens.
 
 ## Friends tab (Section 9)
 

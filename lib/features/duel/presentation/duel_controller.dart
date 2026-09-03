@@ -50,6 +50,7 @@ class DuelController extends AutoDisposeNotifier<RoundState> {
   }
 
   Map<String, int> get scores => _engine.scores;
+  int get roundNumber => _engine.roundNumber;
 
   void startMatch(String opponentName) {
     opponentLabel = opponentName;

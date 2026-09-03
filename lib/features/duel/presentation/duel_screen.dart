@@ -7,9 +7,9 @@ import '../domain/round_state.dart';
 import 'duel_controller.dart';
 import 'duel_outcome_message.dart';
 import 'widgets/dev_gesture_controls.dart';
+import 'widgets/duel_match_header.dart';
 import 'widgets/duel_match_result_view.dart';
 import 'widgets/duel_phase_view.dart';
-import 'widgets/duel_scoreboard_panel.dart';
 import 'widgets/quit_match_dialog.dart';
 
 /// The live duel screen (master prompt Section 8) — dark/neon match register
@@ -20,7 +20,10 @@ import 'widgets/quit_match_dialog.dart';
 /// back gesture/button, or an in-app pop — while a round is still live and
 /// confirms via [QuitMatchDialog] first, since leaving mid-match forfeits
 /// it. Once the match has actually ended ([MatchResultRoundState]), leaving
-/// is free.
+/// is free. [DuelMatchHeader] also carries an explicit exit button wired to
+/// the same [_handlePopAttempt] flow — iOS has no system back button and the
+/// edge-swipe gesture isn't an obvious affordance mid-match, so `PopScope`
+/// alone left no discoverable way out.
 class DuelScreen extends ConsumerStatefulWidget {
   const DuelScreen({super.key, required this.opponentName});
 
@@ -75,10 +78,11 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: DuelScoreboardPanel(
+                  child: DuelMatchHeader(
+                    roundNumber: controller.roundNumber,
                     myScore: scores[DuelController.meId] ?? 0,
                     opponentScore: scores[DuelController.opponentId] ?? 0,
-                    opponentLabel: widget.opponentName,
+                    onExit: () => _handlePopAttempt(state),
                   ),
                 ),
                 Expanded(

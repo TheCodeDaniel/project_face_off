@@ -22,6 +22,11 @@ class DuelRoundEngine {
   final String playerBId;
   final Map<String, int> scores;
 
+  /// 1-indexed. Draws consume a round without moving either score, so this
+  /// can't be inferred from `scores` — needed as its own counter for any UI
+  /// that wants to show "Round N" (e.g. a match header).
+  int roundNumber = 1;
+
   RoundState _state = const NeutralRoundState();
   RoundState get state => _state;
 
@@ -163,6 +168,7 @@ class DuelRoundEngine {
     if (winner != null) {
       _state = MatchResultRoundState(winnerId: winner.key, scores: Map.unmodifiable(scores));
     } else {
+      roundNumber++;
       startNeutralPhase();
     }
   }
