@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:project_face_off/features/profile/data/fake_profile_repository.dart';
+import 'package:project_face_off/features/profile/domain/purchase_result.dart';
 import 'package:project_face_off/features/profile/domain/subscription_tier.dart';
 
 void main() {
@@ -54,10 +55,46 @@ void main() {
       expect(tier, SubscriptionTier.free);
     });
 
-    test('restorePurchases completes without throwing', () async {
+    test('restorePurchases reports nothing to restore against the fake store', () async {
       final repo = FakeProfileRepository(displayName: 'Ama');
 
-      await expectLater(repo.restorePurchases(), completes);
+      final result = await repo.restorePurchases();
+
+      expect(result.status, PurchaseResultStatus.nothingToRestore);
+      expect(result.isSuccess, isFalse);
+    });
+
+    test('fetchOfferings returns a non-empty package catalog', () async {
+      final repo = FakeProfileRepository(displayName: 'Ama');
+
+      final packages = await repo.fetchOfferings();
+
+      expect(packages, isNotEmpty);
+    });
+
+    test('purchasePackage upgrades the tier and emits it on watchSubscriptionTier', () async {
+      final repo = FakeProfileRepository(displayName: 'Ama');
+      final packages = await repo.fetchOfferings();
+      // Subscribe (and let the async* generator forward to the broadcast
+      // controller) before triggering the mutation — a broadcast stream
+      // drops events with no listener, and .first only starts listening
+      // once called. See the friends-repository test gotcha in CLAUDE.md.
+      final tierUpdate = repo.watchSubscriptionTier().skip(1).first;
+
+      final result = await repo.purchasePackage(packages.first.id);
+
+      expect(result.status, PurchaseResultStatus.purchased);
+      expect(result.isSuccess, isTrue);
+      expect(await tierUpdate, SubscriptionTier.plus);
+    });
+
+    test('purchasePackage with an unknown id fails without changing the tier', () async {
+      final repo = FakeProfileRepository(displayName: 'Ama');
+
+      final result = await repo.purchasePackage('not_a_real_package');
+
+      expect(result.status, PurchaseResultStatus.failed);
+      expect(await repo.watchSubscriptionTier().first, SubscriptionTier.free);
     });
   });
 }

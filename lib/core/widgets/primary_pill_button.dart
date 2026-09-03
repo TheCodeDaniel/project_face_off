@@ -10,11 +10,16 @@ import 'app_icon.dart';
 /// SecondaryPillButton(label: 'How to Play', icon: HugeIcons.strokeRoundedHelpCircle, onPressed: () {})
 /// ```
 class PrimaryPillButton extends StatelessWidget {
-  const PrimaryPillButton({super.key, required this.label, required this.onPressed, this.icon});
+  const PrimaryPillButton({super.key, required this.label, required this.onPressed, this.icon, this.loading = false});
 
   final String label;
   final VoidCallback? onPressed;
   final List<List<dynamic>>? icon;
+
+  /// Shows a spinner in place of the icon/label and disables tap — for an
+  /// async action (e.g. a purchase) the button itself triggers, per the
+  /// paywall's purchase flow.
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -23,20 +28,26 @@ class PrimaryPillButton extends StatelessWidget {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: palette.gradientMid,
           foregroundColor: Colors.white,
           shape: const StadiumBorder(),
           elevation: 4,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[AppIcon(icon!, color: Colors.white, size: 20), const SizedBox(width: 8)],
-            Text(label, style: AppTextStyles.headline.copyWith(color: Colors.white, fontSize: 18)),
-          ],
-        ),
+        child: loading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[AppIcon(icon!, color: Colors.white, size: 20), const SizedBox(width: 8)],
+                  Text(label, style: AppTextStyles.headline.copyWith(color: Colors.white, fontSize: 18)),
+                ],
+              ),
       ),
     );
   }

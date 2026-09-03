@@ -1,6 +1,8 @@
 import '../../../core/widgets/podium_leaderboard.dart' show LeaderboardEntry;
 import 'cosmetic.dart';
 import 'player_profile.dart';
+import 'purchase_result.dart';
+import 'subscription_package.dart';
 import 'subscription_tier.dart';
 
 /// Profile contract (master prompt Section 10). The real implementation is
@@ -22,8 +24,17 @@ abstract class ProfileRepository {
 
   Stream<SubscriptionTier> watchSubscriptionTier();
 
+  /// Face Off Plus's purchasable packages — the RevenueCat "Offering" once
+  /// that's wired up. The fake returns a static monthly/annual pair so the
+  /// paywall's full package-picker → purchase UI is exercisable today.
+  Future<List<SubscriptionPackage>> fetchOfferings();
+
+  /// Buys [packageId]. On success, [watchSubscriptionTier] emits the new
+  /// tier — the paywall/subscription UI never needs to poll for it.
+  Future<PurchaseResult> purchasePackage(String packageId);
+
   /// Required by App Store guidelines for any app with paid content —
   /// re-checks the store for prior purchases. The fake always resolves to
   /// "nothing to restore" since there's no real store to check against.
-  Future<void> restorePurchases();
+  Future<PurchaseResult> restorePurchases();
 }

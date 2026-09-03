@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
-import 'core/widgets/gradient_scaffold.dart';
+import 'core/widgets/animated_splash_screen.dart';
 import 'features/app_shell/presentation/app_shell_screen.dart';
 import 'features/auth/presentation/auth_providers.dart';
 import 'features/auth/presentation/sign_in_screen.dart';
@@ -39,39 +41,60 @@ class FaceOffApp extends StatelessWidget {
 /// signed in -> shell; signed out + never onboarded -> the full welcome
 /// sequence ending in sign-in; signed out + already onboarded -> a compact
 /// sign-in screen (onboarding never replays after the first session).
-class AppRoot extends ConsumerWidget {
+///
+/// [AnimatedSplashScreen] holds for at least [_minSplashDuration] regardless
+/// of how fast the underlying providers resolve — against the real
+/// Firebase-backed auth this is a no-op (auth genuinely takes a moment), but
+/// against `FakeAuthRepository`'s near-instant resolution it stops the
+/// splash's spiral/title animation from being cut off mid-play on every
+/// single launch. `AnimatedSwitcher` crossfades into whichever screen comes
+/// next instead of a hard cut.
+class AppRoot extends ConsumerStatefulWidget {
   const AppRoot({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
-
-    return authState.when(
-      loading: () => const _SplashScreen(),
-      error: (_, _) => const _SplashScreen(),
-      data: (user) {
-        if (user != null) {
-          return const AppShellScreen(tabs: [_playTab, _friendsTab, _profileTab]);
-        }
-        final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
-        return hasSeenOnboarding.when(
-          loading: () => const _SplashScreen(),
-          error: (_, _) => const OnboardingScreen(),
-          data: (seen) => seen ? const SignInScreen() : const OnboardingScreen(),
-        );
-      },
-    );
-  }
+  ConsumerState<AppRoot> createState() => _AppRootState();
 }
 
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+class _AppRootState extends ConsumerState<AppRoot> {
+  static const _minSplashDuration = Duration(milliseconds: 2200);
+
+  bool _minSplashElapsed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Timer(_minSplashDuration, () {
+      if (mounted) setState(() => _minSplashElapsed = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const GradientScaffold(
-      body: Center(child: CircularProgressIndicator(color: Colors.white)),
-    );
+    final authState = ref.watch(authStateProvider);
+
+    Widget child = const AnimatedSplashScreen(key: ValueKey('splash'));
+    if (_minSplashElapsed) {
+      child = authState.when(
+        loading: () => const AnimatedSplashScreen(key: ValueKey('splash')),
+        error: (_, _) => const AnimatedSplashScreen(key: ValueKey('splash')),
+        data: (user) {
+          if (user != null) {
+            return const AppShellScreen(key: ValueKey('shell'), tabs: [_playTab, _friendsTab, _profileTab]);
+          }
+          final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
+          return hasSeenOnboarding.when(
+            loading: () => const AnimatedSplashScreen(key: ValueKey('splash')),
+            error: (_, _) => const OnboardingScreen(key: ValueKey('onboarding')),
+            data: (seen) => seen
+                ? const SignInScreen(key: ValueKey('signIn'))
+                : const OnboardingScreen(key: ValueKey('onboarding')),
+          );
+        },
+      );
+    }
+
+    return AnimatedSwitcher(duration: const Duration(milliseconds: 400), child: child);
   }
 }
 

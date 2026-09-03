@@ -89,9 +89,9 @@ class SubscriptionSection extends ConsumerWidget {
   }
 
   Future<void> _restore(BuildContext context, WidgetRef ref) async {
-    await ref.read(profileRepositoryProvider).restorePurchases();
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No previous purchases found.')));
-    }
+    final result = await ref.read(profileRepositoryProvider).restorePurchases();
+    if (!context.mounted) return;
+    final message = result.isSuccess ? 'Face Off Plus restored!' : 'No previous purchases found.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }

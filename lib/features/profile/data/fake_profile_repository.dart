@@ -6,6 +6,8 @@ import '../../../core/widgets/podium_leaderboard.dart' show LeaderboardEntry;
 import '../domain/cosmetic.dart';
 import '../domain/player_profile.dart';
 import '../domain/profile_repository.dart';
+import '../domain/purchase_result.dart';
+import '../domain/subscription_package.dart';
 import '../domain/subscription_tier.dart';
 
 /// In-memory [ProfileRepository] used until Firebase + RevenueCat exist (see
@@ -27,8 +29,19 @@ class FakeProfileRepository implements ProfileRepository {
   final _cosmetics = <Cosmetic>[];
   final _cosmeticsController = StreamController<List<Cosmetic>>.broadcast();
   final _subscriptionController = StreamController<SubscriptionTier>.broadcast();
-  final _tier = SubscriptionTier.free;
+  var _tier = SubscriptionTier.free;
   final PlayerProfile _profile;
+
+  static const _offerings = [
+    SubscriptionPackage(id: 'plus_monthly', period: BillingPeriod.monthly, title: 'Monthly', priceLabel: '\$4.99/mo'),
+    SubscriptionPackage(
+      id: 'plus_annual',
+      period: BillingPeriod.annual,
+      title: 'Annual',
+      priceLabel: '\$39.99/yr',
+      badge: 'Save 33%',
+    ),
+  ];
 
   static PlayerProfile _seedProfile(String displayName) => PlayerProfile(
     displayName: displayName,
@@ -85,8 +98,26 @@ class FakeProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<void> restorePurchases() async {
+  Future<List<SubscriptionPackage>> fetchOfferings() async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    return _offerings;
+  }
+
+  @override
+  Future<PurchaseResult> purchasePackage(String packageId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    final matches = _offerings.where((p) => p.id == packageId);
+    if (matches.isEmpty) return const PurchaseResult(status: PurchaseResultStatus.failed, message: 'Unknown package.');
+
+    _tier = SubscriptionTier.plus;
+    _subscriptionController.add(_tier);
+    return PurchaseResult(status: PurchaseResultStatus.purchased, message: matches.first.title);
+  }
+
+  @override
+  Future<PurchaseResult> restorePurchases() async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     // No real store to check — tier stays as-is.
+    return const PurchaseResult(status: PurchaseResultStatus.nothingToRestore);
   }
 }

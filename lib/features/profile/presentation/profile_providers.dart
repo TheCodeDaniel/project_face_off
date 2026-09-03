@@ -6,6 +6,7 @@ import '../data/fake_profile_repository.dart';
 import '../domain/cosmetic.dart';
 import '../domain/player_profile.dart';
 import '../domain/profile_repository.dart';
+import '../domain/subscription_package.dart';
 import '../domain/subscription_tier.dart';
 
 /// Overridden with real Firebase/RevenueCat-backed implementations once both
@@ -30,4 +31,12 @@ final cosmeticsProvider = StreamProvider<List<Cosmetic>>((ref) {
 
 final subscriptionTierProvider = StreamProvider<SubscriptionTier>((ref) {
   return ref.watch(profileRepositoryProvider).watchSubscriptionTier();
+});
+
+/// The Face Off Plus paywall's package picker — a `FutureProvider` rather
+/// than a stream since the offering catalog doesn't change while the
+/// paywall is open. Purchasing/restoring are one-shot actions the UI calls
+/// directly on `profileRepositoryProvider`, not modeled as providers.
+final subscriptionOfferingsProvider = FutureProvider<List<SubscriptionPackage>>((ref) {
+  return ref.watch(profileRepositoryProvider).fetchOfferings();
 });

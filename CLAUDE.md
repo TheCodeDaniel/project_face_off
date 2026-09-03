@@ -135,6 +135,20 @@ tile/card/pill surfaces.
   signed out + already onboarded → the compact `SignInScreen`. "Onboarding seen" and "tour seen"
   are both persisted locally via `shared_preferences` (`LocalOnboardingRepository`), independent of
   auth state, so neither replays after the first session even offline.
+- **Launch splash**: `AnimatedSplashScreen` (`lib/core/widgets/`) is what `AppRoot` shows while
+  `authStateProvider`/`hasSeenOnboardingProvider` are loading — a spiral of `CustomPaint` particles
+  orbiting inward behind the app icon, which itself spins+scales+settles, followed by a staggered
+  per-letter "Face Off" reveal and a tagline fade-in. Everything rides one `AnimationController`
+  (2.2s) inside a single `RepaintBoundary`/`AnimatedBuilder` — no per-particle or per-letter
+  `AnimationController`s, no widget rebuilds outside that one subtree (engineering rules 6/7).
+  `AppRoot` holds the splash for a **minimum** 2.2s via its own `Timer` regardless of how fast the
+  providers actually resolve (against `FakeAuthRepository`'s near-instant resolve, the animation
+  would otherwise get cut off mid-play on almost every launch), then `AnimatedSwitcher` crossfades
+  into whichever screen comes next. **Gotcha**: the splash's root widget must be wrapped in a
+  `Material` (not bare `DecoratedBox`/`Stack`) — `Text` rendered with no `Material` ancestor falls
+  back to `WidgetsApp`'s debug default style, which is a loud yellow double-underline under every
+  word; easy to miss since it only shows up once you actually run the widget, not in `flutter
+  analyze`.
 - **No Lottie assets exist yet** (no design files were provided) — `OnboardingIllustration`
   (`lib/features/onboarding/presentation/widgets/`) renders an animated icon-on-glass illustration
   instead and is the single documented drop-in point: swap its body for `Lottie.asset(...)` once
@@ -322,9 +336,6 @@ Real bugs found from screenshots after Section 10 shipped, all fixed in one pass
   yet; this only persists the toggle itself.
 - Sign out / delete account reuse `AuthRepository.signOut()`/`.deleteAccount()` from Section 6
   directly — `DeleteAccountDialog` only confirms intent, matching `QuitMatchDialog`'s pattern.
-- `PaywallScreen` is real UI (perks list, tier framing) with no live purchase button — RevenueCat
-  isn't wired up yet (Section 11). `SubscriptionSection`'s "Manage Subscription" shows a snackbar
-  pointing at platform settings rather than deep-linking, for the same reason.
 - `FaqSupportScreen`'s support contact is a real `mailto:` intent via `url_launcher`, with a
   fallback snackbar if no mail client is configured — per the master prompt's instruction to
   "pick one and implement it fully, don't leave a dead-end button."
@@ -334,6 +345,45 @@ Real bugs found from screenshots after Section 10 shipped, all fixed in one pass
   Fix is `tester.view.physicalSize` set tall enough before pumping (see
   `test/features/profile/presentation/profile_screen_test.dart`), not `skipOffstage: false`
   scattered across assertions.
+
+## Monetization (Section 11)
+
+The full RevenueCat package-picker → purchase UI flow is built and real, running against
+`FakeProfileRepository` — only the RevenueCat API keys + a dashboard Offerings catalog are pending
+(see "What's stubbed" below). Swapping those in is a data-mapping change under
+`fetchOfferings`/`purchasePackage`/`restorePurchases`, not a UI rewrite.
+
+- `ProfileRepository` gained `fetchOfferings()`, `purchasePackage(id)`, and a `restorePurchases()`
+  that now returns a `PurchaseResult` (was bare `Future<void>`) instead of a silent success —
+  `PurchaseResultStatus` distinguishes `purchased`/`restored`/`nothingToRestore`/`failed`, so the UI
+  can tell "you're already subscribed, nothing to restore" apart from an actual failure. Kept on
+  `ProfileRepository` rather than split into its own feature — the subscription tier it manages was
+  already there, and the paywall/subscription UI are Profile sub-screens, not a separate feature.
+- `SubscriptionPackage` (`lib/features/profile/domain/`) mirrors the shape of a RevenueCat
+  `Package` closely enough that the real swap stays a mapping exercise. `FakeProfileRepository`
+  seeds two: `plus_monthly` ($4.99/mo) and `plus_annual` ($39.99/yr, badged "Save 33%"); purchasing
+  either sets the in-memory tier to `plus` and emits it on `watchSubscriptionTier` so every screen
+  watching that provider (`SubscriptionSection`, cosmetics gating, etc.) updates itself — no manual
+  refresh wiring needed anywhere.
+- `PaywallScreen` is now a `ConsumerStatefulWidget`: a `SubscriptionPackageCard` picker (radio-style
+  selection, coin-gold border + badge when selected) feeds a `PrimaryPillButton` whose label always
+  shows the selected package's live price. Tapping it shows the button's new `loading` state
+  (spinner, disabled) while `purchasePackage` resolves, then `AnimatedSwitcher` crossfades to
+  `PurchaseSuccessView` (same crossfade-confirmation language as `AddFriendSheet`'s success state),
+  which auto-closes the paywall after ~1.4s. A failed/unknown purchase shows a `SnackBar` and stays
+  on the picker instead. `SubscriptionSection`'s "Restore Purchases" reads `PurchaseResult.isSuccess`
+  for a real "Face Off Plus restored!" vs. "No previous purchases found." message rather than a
+  hardcoded string either way.
+- **`PrimaryPillButton` gained an optional `loading` bool** (spinner in place of icon/label, taps
+  disabled) — the one new capability added to the shared button rather than duplicated inline, since
+  an async CTA that shows its own pending state is a pattern other flows (sign-in, purchases) will
+  keep needing.
+- **Test gotcha (same shape as the Friends one)**: a test asserting `purchasePackage` emits the new
+  tier on `watchSubscriptionTier` has to call `.skip(1).first` *before* triggering the purchase, not
+  after — `watchSubscriptionTier`'s `async*` generator forwards to a broadcast `StreamController`,
+  which drops events with no listener, and `purchasePackage`'s emission would otherwise already have
+  fired and been lost by the time a late `.first` subscribes. See
+  `test/features/profile/data/fake_profile_repository_test.dart`.
 
 ## What's stubbed pending your credentials
 
@@ -361,5 +411,6 @@ Scaffold → design system → app shell → **auth/onboarding (done, against a 
 **Play/matchmaking (done, against a fake matchmaking repo)** →
 **duel engine (done — playable end-to-end via the dev gesture-controls harness, pending real
 camera + networking)** → **Friends (done, against a fake friends repo)** →
-**Profile (done, against a fake profile repo — paywall UI built, live purchases pending
-RevenueCat)** → monetization → offline handling → performance pass.
+**Profile (done, against a fake profile repo)** → **monetization (done — full RevenueCat
+package-picker/purchase UI flow built against the fake repo, pending real API keys)** → offline
+handling → performance pass.
