@@ -25,6 +25,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return GradientScaffold(
       body: SafeArea(
+        bottom: false,
         child: NotificationListener<ScrollNotification>(
           onNotification: (notification) {
             if (notification is ScrollUpdateNotification) {
