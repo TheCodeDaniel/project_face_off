@@ -9,6 +9,7 @@ import '../../../auth/presentation/auth_providers.dart';
 import '../faq_support_screen.dart';
 import '../notification_settings_controller.dart';
 import 'delete_account_dialog.dart';
+import 'sign_out_dialog.dart';
 
 /// Settings (master prompt Section 10): notification toggle, FAQ & support,
 /// sign out, delete account.
@@ -34,12 +35,20 @@ class SettingsSection extends ConsumerWidget {
           _Row(
             icon: HugeIcons.strokeRoundedQuestion,
             label: 'FAQ & Support',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FaqSupportScreen())),
+            // rootNavigator: true — see the note on ProfileScreen's
+            // Leaderboard push; same nested-Navigator/nav-bar-bleed issue.
+            onTap: () => Navigator.of(
+              context,
+              rootNavigator: true,
+            ).push(MaterialPageRoute(builder: (_) => const FaqSupportScreen())),
           ),
           _Row(
             icon: HugeIcons.strokeRoundedLogout01,
             label: 'Sign Out',
-            onTap: () => ref.read(authRepositoryProvider).signOut(),
+            onTap: () async {
+              final confirmed = await SignOutDialog.show(context);
+              if (confirmed) await ref.read(authRepositoryProvider).signOut();
+            },
           ),
           _Row(
             icon: HugeIcons.strokeRoundedDelete02,

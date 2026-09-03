@@ -46,19 +46,21 @@ class _Podium extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     LeaderboardEntry? at(int i) => i < top3.length ? top3[i] : null;
-    return SizedBox(
-      height: 180,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _PodiumBlock(entry: at(1), rank: 2, height: 90, color: Colors.grey.shade400),
-          const SizedBox(width: 8),
-          _PodiumBlock(entry: at(0), rank: 1, height: 130, color: palette.coinGold, crowned: true),
-          const SizedBox(width: 8),
-          _PodiumBlock(entry: at(2), rank: 3, height: 70, color: const Color(0xFFCD7F32)),
-        ],
-      ),
+    // No fixed height here — the tallest block (crown + avatar + name + score
+    // + a 130px column) needs more than the 180px this used to be pinned to,
+    // which silently clipped it ("BOTTOM OVERFLOWED BY 68 PIXELS"). Letting
+    // the Row size to its own intrinsic content height fixes that for any
+    // future block-height tuning too, not just the current numbers.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _PodiumBlock(entry: at(1), rank: 2, height: 90, color: Colors.grey.shade400),
+        const SizedBox(width: 8),
+        _PodiumBlock(entry: at(0), rank: 1, height: 130, color: palette.coinGold, crowned: true),
+        const SizedBox(width: 8),
+        _PodiumBlock(entry: at(2), rank: 3, height: 70, color: const Color(0xFFCD7F32)),
+      ],
     );
   }
 }

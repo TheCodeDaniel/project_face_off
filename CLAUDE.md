@@ -225,6 +225,41 @@ site. Frosted white reads clearly at any point on the gradient.
   — the generator always yields the current snapshot immediately, so no race. See
   `test/features/friends/data/fake_friends_repository_test.dart`.
 
+## Profile sub-screen fixes (post-Section-10 review pass)
+
+Real bugs found from screenshots after Section 10 shipped, all fixed in one pass:
+
+- **`GradientScaffold` only wrapped `body`, not the whole `Scaffold`.** With a transparent `AppBar`
+  (every sub-screen that has one), the app bar area fell through to the plain theme background
+  instead of the gradient — white `AppBar` title text on a near-white background is effectively
+  invisible. Fixed by moving the gradient `DecoratedBox` to wrap the entire `Scaffold`, not just
+  `body` — see the widget's doc comment. The `extendBodyBehindAppBar` param is gone; the fix makes
+  it unconditionally correct instead of something callers had to remember to opt into.
+- **`PodiumLeaderboard` had a hardcoded `SizedBox(height: 180)`** around the podium `Row` that was
+  never actually tall enough for the content (crown + avatar + name + score + up to a 130px block) —
+  silently clipped with a `BOTTOM OVERFLOWED BY 68 PIXELS` banner the whole time this component
+  existed, just never rendered on a real screen until `LeaderboardScreen` (Section 10) actually used
+  it. Fixed by removing the fixed height and letting the `Row` size to its own intrinsic content.
+- **`LeaderboardScreen`/`FaqSupportScreen`/`PaywallScreen` pushed on the tab's nested Navigator**,
+  same bug class as engineering rule 9 — `FloatingNavBar` bled through on top of all three. All
+  three pushes now use `Navigator.of(context, rootNavigator: true)`.
+- **`PaywallScreen` was redesigned** — the original used two `Spacer()`s to center a thin perk list,
+  which read as mostly-empty gradient on any real screen size. Replaced with a `ListView` (icon
+  badge, title/subtitle, perk rows as frosted icon-in-circle cards matching `FaqSupportScreen`'s
+  card language, CTA, fine print) — no more Spacer-driven empty space.
+- **Sign out had no confirmation** — an easy accidental tap with no undo. Added `SignOutDialog`,
+  and factored the shared visual shell both it and `DeleteAccountDialog` use into
+  `LobbyConfirmationDialog` (`lib/core/widgets/`) rather than duplicating the icon/title/body/button
+  structure a third time.
+- **Verification method for a screen buried behind on-screen navigation**: simulator coordinate-tap
+  automation (AppleScript `click at`) is fragile for anything nested a few screens deep — window
+  geometry drift, scroll-position drift across app restarts, and small tap targets all compound.
+  When a screen is hard to reach that way (as `PaywallScreen` was here), write a throwaway entry
+  point (`lib/_debug_..._preview.dart`, `runApp` straight to the target widget) and
+  `flutter run -t <that file>` — renders the real widget with real data instantly, no navigation
+  needed. Delete the file after. Don't burn excessive tap-and-guess cycles trying to brute-force a
+  path through the UI when this is available.
+
 ## Rest of Profile tab (Section 10)
 
 - `ProfileRepository` (`lib/features/profile/domain/`) + `FakeProfileRepository` cover profile

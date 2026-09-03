@@ -52,7 +52,12 @@ class SubscriptionSection extends ConsumerWidget {
             PrimaryPillButton(
               label: 'Upgrade to Face Off Plus',
               icon: HugeIcons.strokeRoundedDiamond,
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaywallScreen())),
+              // rootNavigator: true — see the note on ProfileScreen's
+              // Leaderboard push; same nested-Navigator/nav-bar-bleed issue.
+              onPressed: () => Navigator.of(
+                context,
+                rootNavigator: true,
+              ).push(MaterialPageRoute(builder: (_) => const PaywallScreen())),
             ),
           const SizedBox(height: 8),
           Row(

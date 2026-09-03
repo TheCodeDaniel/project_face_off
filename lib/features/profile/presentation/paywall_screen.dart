@@ -25,48 +25,83 @@ class PaywallScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     return GradientScaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, foregroundColor: Colors.white),
+      appBar: AppBar(backgroundColor: Colors.transparent, foregroundColor: Colors.white, elevation: 0),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(),
-              AppIcon(HugeIcons.strokeRoundedDiamond, color: palette.coinGold, size: 56),
-              const SizedBox(height: 16),
-              Text('Face Off Plus', style: AppTextStyles.display.copyWith(color: Colors.white)),
-              const SizedBox(height: 24),
-              for (final perk in _perks) _PerkRow(icon: perk.icon, text: perk.text),
-              const Spacer(),
-              PrimaryPillButton(
-                label: 'Subscriptions coming soon',
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Subscriptions need RevenueCat set up first — see CLAUDE.md.')),
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          children: [
+            Center(
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.18),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.4),
                 ),
+                alignment: Alignment.center,
+                child: AppIcon(HugeIcons.strokeRoundedDiamond, color: palette.coinGold, size: 44),
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Face Off Plus',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 30),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Unlock the full experience',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 28),
+            for (final perk in _perks) _PerkCard(icon: perk.icon, text: perk.text, palette: palette),
+            const SizedBox(height: 16),
+            PrimaryPillButton(
+              label: 'Subscriptions coming soon',
+              icon: HugeIcons.strokeRoundedDiamond,
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Subscriptions need RevenueCat set up first — see CLAUDE.md.')),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Pricing and billing are handled by RevenueCat once it's configured — nothing to set up here yet.",
+              textAlign: TextAlign.center,
+              style: AppTextStyles.label.copyWith(color: Colors.white54, fontSize: 12),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _PerkRow extends StatelessWidget {
-  const _PerkRow({required this.icon, required this.text});
+class _PerkCard extends StatelessWidget {
+  const _PerkCard({required this.icon, required this.text, required this.palette});
 
   final List<List<dynamic>> icon;
   final String text;
+  final LobbyPalette palette;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
-          AppIcon(icon, color: Colors.white, size: 20),
-          const SizedBox(width: 12),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: palette.coinGold.withValues(alpha: 0.25), shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: AppIcon(icon, color: palette.coinGold, size: 18),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(text, style: AppTextStyles.body.copyWith(color: Colors.white)),
           ),

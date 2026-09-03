@@ -67,7 +67,14 @@ class ProfileScreen extends ConsumerWidget {
               _NavCard(
                 icon: HugeIcons.strokeRoundedPodium,
                 label: 'Leaderboard',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
+                // rootNavigator: true — the Profile tab has its own nested
+                // Navigator (Section 5's per-tab back-stack), which
+                // FloatingNavBar paints over; see CLAUDE.md engineering rule
+                // 9. Without this the nav bar bleeds through the pushed page.
+                onTap: () => Navigator.of(
+                  context,
+                  rootNavigator: true,
+                ).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
               ),
               const SizedBox(height: 24),
               Text('Cosmetics', style: AppTextStyles.label.copyWith(color: Colors.white70)),
