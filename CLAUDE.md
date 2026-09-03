@@ -26,6 +26,21 @@ theming, or the duel state machine.
    `compute()` or a long-lived `Isolate`, never on the UI isolate.
 8. **Tests are part of "done"** — domain logic (esp. the duel state machine) gets unit tests,
    widgets get at least a smoke test.
+9. **`Navigator.of(context, rootNavigator: true)` for anything that must cover the whole shell** —
+   modals (`showModalBottomSheet`) and full-screen routes pushed from inside a tab. Each tab has its
+   own nested `Navigator` (rule 1 of Section 5 below), which `AppShellScreen` paints as a Stack
+   sibling *before* `FloatingNavBar`; a sheet or route pushed on that nested Navigator renders
+   underneath the nav bar instead of covering it. Hit this bug twice already (`HowToPlaySheet`, then
+   the whole matchmaking→duel push chain) — check this first if something renders behind the nav bar.
+   Only the *first* push in a chain needs `rootNavigator: true` explicitly; everything pushed from
+   inside a screen that's already on the root Navigator inherits it via plain `Navigator.of(context)`.
+10. **Timer-driven Riverpod controllers use `clock.now()` (package:clock), never raw
+    `DateTime.now()`** — `package:fake_async`'s `fakeAsync()` fakes `package:clock`'s ambient clock
+    automatically (`withClock` under the hood), which is what makes `DuelController`'s cue/dodge/
+    round-timeout `Timer`s deterministically testable in virtual time. Raw `DateTime.now()` would
+    still return real wall-clock time inside a `fakeAsync` zone and silently break the test's timing
+    assumptions. Pure domain logic (`DuelRoundEngine`) stays timestamp-agnostic regardless — it only
+    ever receives `DateTime`s as parameters, never reads the clock itself.
 
 ## Design system
 
@@ -118,15 +133,38 @@ site. Frosted white reads clearly at any point on the gradient.
   per-tab-back-stack rule), starts the queue on `initState`, and switches on `MatchmakingState` —
   cancel is always reachable, timeout gets a friendly retry/cancel prompt, never a bare spinner.
 - On `MatchmakingFound`, `MatchFoundScreen` plays the already-built `DuelVsTransition` (Section 4)
-  then stops at a clearly-labeled "duel screen lands in the next phase" placeholder — the duel
-  feature's live match screen and Realtime DB signaling aren't wired up yet (rest of Section 8).
-  This is the intentional bridge point, not a silent dead end.
+  then hands off to `DuelScreen` (rest of Section 8, now built — see below).
 - `onlineCountProvider` and `MatchHistoryTeaser` are placeholders (fluctuating fake count / empty
   state) until Firebase presence tracking and match-history write-back exist — both documented
   inline. Note the online-count `Timer.periodic` is cancelled explicitly via `ref.onDispose`; an
   `async*` generator looping on `Future.delayed` instead leaves a dangling platform timer behind on
   provider disposal (surfaced as a failed widget-test assertion — worth remembering for any other
   "tick forever" provider added later).
+
+## Live duel screen (rest of Section 8)
+
+- `DuelController` (`lib/features/duel/presentation/`) is the Riverpod `Notifier` that drives one
+  live match against `DuelRoundEngine`: arms/fires the cue on a real `Timer`, schedules the
+  dodge-window/round-timeout/simultaneous-crack-window checks (`checkDodgeWindowElapsed` etc. from
+  the engine), and auto-advances through the 2.5s recap pause between rounds. Uses `clock.now()`
+  throughout, never `DateTime.now()` — see engineering rule 10 above.
+- **No camera or opponent networking exists yet** (needs the real MediaPipe gesture engine and
+  Firebase Realtime DB signaling — see "What's stubbed" below). Both players auto-confirm "neutral"
+  immediately for the same reason. In their place, `DevGestureControls`
+  (`lib/features/duel/presentation/widgets/`) is a **temporary local test harness**: Fire/Dodge/
+  Crack buttons for *both* "You" and the opponent, so one device can drive a full, real playthrough
+  of the round state machine — false starts, dodges, cracks, timeouts, best-of-5 — without a second
+  device or a camera. Delete this widget once the real gesture engine and signaling replace
+  `DuelController`'s manual triggers and local timers.
+- `duelOutcomeMessage()` turns a resolved `RoundOutcome` into the `ActivityToast` recap text the
+  spec calls for ("You dodged in time!" etc.), phrased from the local player's perspective.
+- Tested with `package:fake_async` (`test/features/duel/presentation/duel_controller_test.dart`) —
+  covers cue-arm→fire, a resolved fire-with-no-dodge, a same-instant dodge reset, round timeout, and
+  auto-advance to the next round. One gotcha hit while writing these: the cue delay is *randomized*
+  (1-4s), so asserting on the state at one fixed total-elapsed duration is flaky — the random draw
+  plus the fixed 2.5s recap can land the check either mid-recap or already advanced to round 2
+  depending on the draw. Fixed by observing the state transition via `container.listen` instead of
+  snapshotting a timing-dependent instant; keep that pattern for any similarly randomized-delay test.
 
 ## What's stubbed pending your credentials
 
@@ -151,5 +189,6 @@ of the app builds and runs today, but not live-wired:
 ## Build order (from master prompt, keep committing per section)
 
 Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
-**Play/matchmaking (done, against a fake matchmaking repo)** → duel engine → Friends → Profile →
-monetization → offline handling → performance pass.
+**Play/matchmaking (done, against a fake matchmaking repo)** →
+**duel engine (done — playable end-to-end via the dev gesture-controls harness, pending real
+camera + networking)** → Friends → Profile → monetization → offline handling → performance pass.

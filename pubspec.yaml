@@ -53,6 +53,7 @@ dependencies:
   hugeicons: ^1.1.7
   google_fonts: ^8.2.1
   shared_preferences: ^2.5.5
+  clock: ^1.1.2
 
   # --- Credential-gated: add back once configured, see CLAUDE.md ---
   # firebase_core / firebase_auth / cloud_firestore / firebase_database:
@@ -75,6 +76,7 @@ dev_dependencies:
   riverpod_generator: ^2.6.3
   build_runner: ^2.4.13
   mocktail: ^1.0.4
+  fake_async: ^1.3.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

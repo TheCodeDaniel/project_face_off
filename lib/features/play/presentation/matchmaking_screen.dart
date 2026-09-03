@@ -8,9 +8,15 @@ import 'matchmaking_controller.dart';
 import 'widgets/matchmaking_searching_view.dart';
 import 'widgets/matchmaking_timeout_view.dart';
 
-/// Full-screen matchmaking queue (master prompt Section 7). Pushed from
-/// [PlayScreen]'s Quick Match button onto the Play tab's own nested
-/// navigator, so the tab's back-stack behaves like a normal mobile screen.
+/// Full-screen matchmaking queue (master prompt Section 7). [PlayScreen]
+/// pushes this on the **root** Navigator, not the Play tab's own nested one
+/// — a tab's nested Navigator is a Stack sibling that `AppShellScreen`
+/// paints *underneath* `FloatingNavBar`, so a full-screen route pushed there
+/// would render behind the nav bar instead of covering it (the same bug
+/// class as the modal-sheet fix on `HowToPlaySheet`). Everything this
+/// screen hands off to (`MatchFoundScreen`, `DuelScreen`) inherits the root
+/// Navigator automatically via ordinary `Navigator.of(context)` calls, since
+/// by the time they're pushed this screen's subtree already lives there.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 

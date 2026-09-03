@@ -53,8 +53,14 @@ class PlayScreen extends ConsumerWidget {
                 child: PrimaryPillButton(
                   label: 'Quick Match',
                   icon: HugeIcons.strokeRoundedZap,
-                  onPressed: () =>
-                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MatchmakingScreen())),
+                  // rootNavigator: true — see the note on MatchmakingScreen:
+                  // pushed on the Play tab's own nested Navigator, this (and
+                  // everything it hands off to) would render underneath
+                  // FloatingNavBar instead of covering it.
+                  onPressed: () => Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).push(MaterialPageRoute(builder: (_) => const MatchmakingScreen())),
                 ),
               ),
               const SizedBox(height: 12),
