@@ -1,17 +1,23 @@
-# project_face_off
+# Face Off
 
-A new Flutter project.
+A Flutter party game where two players duel using real-time face-gesture tracking — your face is
+the controller, no buttons, no joysticks.
 
-## Getting Started
+- **App name:** Face Off
+- **Package ID:** `com.faceoffgame.mobile` (Android `applicationId` / iOS bundle identifier)
 
-This project is a starting point for a Flutter application.
+See [CLAUDE.md](CLAUDE.md) for the running build log: architecture rules, design system,
+what's built, and what's stubbed pending Firebase/RevenueCat credentials.
 
-A few resources to get you started if this is your first Flutter project:
+## Getting started
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Regenerate app icons after changing `assets/images/face-off-icon-1024.png`:
+
+```
+dart run flutter_launcher_icons
+```

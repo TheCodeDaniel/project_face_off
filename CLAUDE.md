@@ -6,6 +6,14 @@ semantic gesture events). Source specs: `docs/face-off-01-design-blueprint.pdf` 
 running source of truth for decisions made while building — read it before touching architecture,
 theming, or the duel state machine.
 
+**App identity**: display name "Face Off", package ID `com.faceoffgame.mobile` (Android
+`applicationId`/`namespace`, iOS `PRODUCT_BUNDLE_IDENTIFIER` — set on both `Runner` and
+`RunnerTests`). The Dart package name (`pubspec.yaml`'s `name:`, used in every
+`package:project_face_off/...` import) is a separate, unrelated thing and stays as-is — renaming it
+would mean touching every import in the project for no real benefit. App icon source lives at
+`assets/images/face-off-icon-1024.png` (1024×1024, no alpha — required for iOS); regenerate all
+platform icon sets with `dart run flutter_launcher_icons` after changing it.
+
 ## Hard engineering rules (apply to every file)
 
 1. **Feature-First Clean Architecture** — each feature under `lib/features/<name>/` with its own
