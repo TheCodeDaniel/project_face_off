@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -8,16 +9,20 @@ import '../../../core/widgets/coin_badge.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../core/widgets/primary_pill_button.dart';
 import '../../app_shell/presentation/nav_visibility_controller.dart';
+import 'matchmaking_screen.dart';
+import 'online_count_provider.dart';
+import 'widgets/how_to_play_sheet.dart';
+import 'widgets/match_history_teaser.dart';
 
 /// Play tab home state (master prompt Section 7): live "players online now"
 /// indicator, Quick Match CTA, How to Play, recent match history teaser.
-/// Matchmaking-queue flow and Firestore/Realtime DB pairing are not wired yet
-/// — see CLAUDE.md.
-class PlayScreen extends StatelessWidget {
+class PlayScreen extends ConsumerWidget {
   const PlayScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onlineCount = ref.watch(onlineCountProvider).valueOrNull ?? 0;
+
     return GradientScaffold(
       body: SafeArea(
         child: NotificationListener<ScrollNotification>(
@@ -38,17 +43,30 @@ class PlayScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              const _OnlineIndicator(count: 0),
+              _OnlineIndicator(count: onlineCount),
               const SizedBox(height: 32),
               Showcase(
                 key: TourKeys.quickMatch,
                 title: 'Quick Match',
                 description: 'Jump into a random duel the moment you\'re ready.',
                 targetBorderRadius: BorderRadius.circular(999),
-                child: PrimaryPillButton(label: 'Quick Match', icon: HugeIcons.strokeRoundedZap, onPressed: () {}),
+                child: PrimaryPillButton(
+                  label: 'Quick Match',
+                  icon: HugeIcons.strokeRoundedZap,
+                  onPressed: () =>
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MatchmakingScreen())),
+                ),
               ),
               const SizedBox(height: 12),
-              SecondaryPillButton(label: 'How to Play', icon: HugeIcons.strokeRoundedHelpCircle, onPressed: () {}),
+              SecondaryPillButton(
+                label: 'How to Play',
+                icon: HugeIcons.strokeRoundedHelpCircle,
+                onPressed: () => HowToPlaySheet.show(context),
+              ),
+              const SizedBox(height: 32),
+              Text('Recent matches', style: AppTextStyles.label.copyWith(color: Colors.white70)),
+              const SizedBox(height: 10),
+              const MatchHistoryTeaser(),
             ],
           ),
         ),

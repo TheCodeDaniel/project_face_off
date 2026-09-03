@@ -107,6 +107,27 @@ site. Frosted white reads clearly at any point on the gradient.
   entry points into those sections). `TourKeys` (`lib/core/onboarding_tour/`) holds the shared
   `GlobalKey`s so `app_shell` and `play` don't reach into each other's internals to wire it up.
 
+## Play tab & matchmaking (Section 7)
+
+- `MatchmakingRepository` (`lib/features/play/domain/`) + `FakeMatchmakingRepository` follow the
+  same pattern as auth: a queue stream that starts `MatchmakingSearching` and resolves to exactly
+  one of `MatchmakingFound`/`MatchmakingTimedOut`. `MatchmakingController` is a `Notifier` (not
+  `AsyncNotifier` — the state is a plain sealed class, no async-value wrapping needed) that owns
+  the subscription and exposes `startQueue()`/`cancelQueue()`.
+- `MatchmakingScreen` is pushed onto the Play tab's own nested `Navigator` (per Section 5's
+  per-tab-back-stack rule), starts the queue on `initState`, and switches on `MatchmakingState` —
+  cancel is always reachable, timeout gets a friendly retry/cancel prompt, never a bare spinner.
+- On `MatchmakingFound`, `MatchFoundScreen` plays the already-built `DuelVsTransition` (Section 4)
+  then stops at a clearly-labeled "duel screen lands in the next phase" placeholder — the duel
+  feature's live match screen and Realtime DB signaling aren't wired up yet (rest of Section 8).
+  This is the intentional bridge point, not a silent dead end.
+- `onlineCountProvider` and `MatchHistoryTeaser` are placeholders (fluctuating fake count / empty
+  state) until Firebase presence tracking and match-history write-back exist — both documented
+  inline. Note the online-count `Timer.periodic` is cancelled explicitly via `ref.onDispose`; an
+  `async*` generator looping on `Future.delayed` instead leaves a dangling platform timer behind on
+  provider disposal (surfaced as a failed widget-test assertion — worth remembering for any other
+  "tick forever" provider added later).
+
 ## What's stubbed pending your credentials
 
 These need accounts/config only you can provide — implemented behind clean interfaces so the rest
@@ -130,5 +151,5 @@ of the app builds and runs today, but not live-wired:
 ## Build order (from master prompt, keep committing per section)
 
 Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
-Play/matchmaking → duel engine → Friends → Profile → monetization → offline handling →
-performance pass.
+**Play/matchmaking (done, against a fake matchmaking repo)** → duel engine → Friends → Profile →
+monetization → offline handling → performance pass.
