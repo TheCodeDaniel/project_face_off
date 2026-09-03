@@ -40,6 +40,28 @@ Core reusable widgets live in `lib/core/widgets/`, one file each: `GradientScaff
 `PodiumLeaderboard`, `RoomCard`, `PinCodeEntry`, `ActivityToast`, `CollapsiblePanel`, `StatTile`,
 `DuelVsTransition`, `PrimaryPillButton`, `SecondaryPillButton`.
 
+**Typography** (`google_fonts`, via `AppTextStyles`): three fonts, each with a job — Fredoka
+(bold/rounded) for display & headline text, Plus Jakarta Sans (clean geometric) for body & label
+text, Space Grotesk (tabular figures) for scores/coins/timers. Never reach for `GoogleFonts.*`
+directly outside `lib/core/theme/app_text_styles.dart` — always go through `AppTextStyles`.
+
+**Icons** (`hugeicons`, via `AppIcon`): the stroke-rounded hugeicons set is the only icon language
+in the app — no `Icons.*` (Material icon font) anywhere outside legacy/system chrome. Use
+`AppIcon(HugeIcons.strokeRoundedX, ...)` (a thin wrapper in `lib/core/widgets/app_icon.dart`), not
+`HugeIcon` directly, so there's one seam if the icon package ever changes. Widgets that take an
+icon parameter type it `List<List<dynamic>>?` (hugeicons' `IconData`-equivalent), not `IconData?`.
+
+**`FloatingNavBar`** is glassmorphic (`BackdropFilter` blur + translucent white) rather than a flat
+card, and icon-first: unselected tabs show icon only, the selected tab grows an inline label inside
+an accent-colored pill. This was a deliberate revision after the first pass shipped a plain white
+bar with icon+label on all three tabs — too text-heavy against the gradient, not "glassy" per
+the design ask.
+
+**`SecondaryPillButton`** ("How to Play" etc.) is a translucent white/frosted pill, not an outline
+in `LobbyPalette.gradientStart`. The outline version was nearly invisible — a deep-violet border
+has too little contrast against the violet→magenta→orange gradient it sits on at almost every use
+site. Frosted white reads clearly at any point on the gradient.
+
 ## Duel game engine (the core of the app)
 
 - Best of 5 rounds, first to 3 wins.

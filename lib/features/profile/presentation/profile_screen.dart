@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
@@ -35,10 +36,10 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.4,
                 children: const [
-                  StatTile(label: 'Win streak', value: '0', icon: Icons.local_fire_department_rounded),
-                  StatTile(label: 'Matches', value: '0', icon: Icons.sports_kabaddi_rounded),
-                  StatTile(label: 'Friends', value: '0', icon: Icons.people_alt_rounded),
-                  StatTile(label: 'Win rate', value: '0%', icon: Icons.emoji_events_rounded),
+                  StatTile(label: 'Win streak', value: '0', icon: HugeIcons.strokeRoundedFire),
+                  StatTile(label: 'Matches', value: '0', icon: HugeIcons.strokeRoundedBoxingGlove01),
+                  StatTile(label: 'Friends', value: '0', icon: HugeIcons.strokeRoundedUserGroup),
+                  StatTile(label: 'Win rate', value: '0%', icon: HugeIcons.strokeRoundedAward01),
                 ],
               ),
             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_text_styles.dart';
 import 'lobby_palette.dart';
 import 'match_palette.dart';
 
@@ -15,6 +16,7 @@ abstract final class AppTheme {
       brightness: Brightness.light,
       scaffoldBackgroundColor: lobby.cardBackground,
       colorScheme: ColorScheme.fromSeed(seedColor: lobby.gradientStart, brightness: Brightness.light),
+      textTheme: AppTextStyles.textTheme(ThemeData(brightness: Brightness.light).textTheme),
       extensions: const [LobbyPalette.standard, MatchPalette.standard],
     );
   }

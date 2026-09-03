@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
+import '../widgets/app_icon.dart';
 
 /// Slide-up (not blocking-dialog) offline notice per Blueprint Section 5.
 /// Auto-dismisses the instant connectivity + a server health check pass; a
@@ -38,7 +40,7 @@ class OfflineBottomSheet extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.black45),
+          const AppIcon(HugeIcons.strokeRoundedWifiOff01, size: 44, color: Colors.black45),
           const SizedBox(height: 12),
           Text("You're offline", style: AppTextStyles.headline.copyWith(color: Colors.black87)),
           const SizedBox(height: 4),

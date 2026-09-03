@@ -1,14 +1,20 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/lobby_palette.dart';
+import '../../../core/widgets/app_icon.dart';
 import 'nav_visibility_controller.dart';
 
-/// Floating pill-shaped bottom nav (master prompt Section 5): auto-hides on
-/// scroll-down beyond a small threshold, reappears on scroll-up or after
-/// ~600ms idle, never hides while a modal is open on top of it. Rendered
-/// above [SafeArea]. Feature screens report scroll deltas via
-/// [NavVisibilityScope.of(context)].
+/// Floating glass-pill bottom nav (master prompt Section 5): frosted/blurred
+/// translucent background rather than a flat card, icon-first items where
+/// only the selected tab grows a label — keeps the bar compact and lets the
+/// icon set (hugeicons) carry the read rather than three text labels
+/// competing with the gradient behind it. Auto-hides on scroll-down past a
+/// small threshold, reappears on scroll-up or after ~600ms idle, never hides
+/// while a modal is open on top of it.
 class FloatingNavBar extends StatefulWidget {
   const FloatingNavBar({super.key, required this.currentIndex, required this.onTabSelected});
 
@@ -21,9 +27,9 @@ class FloatingNavBar extends StatefulWidget {
 
 class _FloatingNavBarState extends State<FloatingNavBar> {
   static const _items = [
-    (icon: Icons.sports_kabaddi_rounded, label: 'Play'),
-    (icon: Icons.people_alt_rounded, label: 'Friends'),
-    (icon: Icons.person_rounded, label: 'Profile'),
+    (icon: HugeIcons.strokeRoundedBoxingGlove01, label: 'Play'),
+    (icon: HugeIcons.strokeRoundedUserGroup, label: 'Friends'),
+    (icon: HugeIcons.strokeRoundedUserCircle02, label: 'Profile'),
   ];
 
   @override
@@ -47,27 +53,34 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
         },
         child: Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 6)),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < _items.length; i++)
-                  _NavItem(
-                    icon: _items[i].icon,
-                    label: _items[i].label,
-                    selected: widget.currentIndex == i,
-                    accent: palette.gradientMid,
-                    onTap: () => widget.onTabSelected(i),
-                  ),
-              ],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 8)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < _items.length; i++)
+                      _NavItem(
+                        icon: _items[i].icon,
+                        label: _items[i].label,
+                        selected: widget.currentIndex == i,
+                        accent: palette.gradientMid,
+                        onTap: () => widget.onTabSelected(i),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -85,7 +98,7 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final bool selected;
   final Color accent;
@@ -93,18 +106,31 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? accent : Colors.black45;
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(width: 6),
-            Text(label, style: AppTextStyles.label.copyWith(color: color)),
+            AppIcon(icon, color: selected ? Colors.white : Colors.black54, size: 22),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: selected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Text(label, style: AppTextStyles.label.copyWith(color: Colors.white)),
+                    )
+                  : const SizedBox(width: 0, height: 0),
+            ),
           ],
         ),
       ),

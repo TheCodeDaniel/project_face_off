@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/coin_badge.dart';
@@ -37,9 +38,9 @@ class PlayScreen extends StatelessWidget {
               const SizedBox(height: 24),
               const _OnlineIndicator(count: 0),
               const SizedBox(height: 32),
-              PrimaryPillButton(label: 'Quick Match', icon: Icons.bolt_rounded, onPressed: () {}),
+              PrimaryPillButton(label: 'Quick Match', icon: HugeIcons.strokeRoundedZap, onPressed: () {}),
               const SizedBox(height: 12),
-              SecondaryPillButton(label: 'How to Play', icon: Icons.help_outline_rounded, onPressed: () {}),
+              SecondaryPillButton(label: 'How to Play', icon: HugeIcons.strokeRoundedHelpCircle, onPressed: () {}),
             ],
           ),
         ),

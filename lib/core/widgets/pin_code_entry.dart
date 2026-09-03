@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
 import '../theme/lobby_palette.dart';
+import 'app_icon.dart';
 
 /// 6-box code entry with a "Room found!" confirmation state (Blueprint Section
 /// 1, Image 2). Reused for the Friends-tab invite-code join flow. Demo:
@@ -78,7 +80,7 @@ class _PinCodeEntryState extends State<PinCodeEntry> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.check_circle_rounded, color: palette.gradientMid, size: 18),
+              AppIcon(HugeIcons.strokeRoundedCheckmarkCircle02, color: palette.gradientMid, size: 18),
               const SizedBox(width: 6),
               Text('Room found!', style: AppTextStyles.label.copyWith(color: palette.gradientMid)),
             ],

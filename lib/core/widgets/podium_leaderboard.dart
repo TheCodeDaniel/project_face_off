@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
 import '../theme/lobby_palette.dart';
+import 'app_icon.dart';
 
 class LeaderboardEntry {
   const LeaderboardEntry({required this.name, required this.score, this.avatarUrl});
@@ -83,7 +85,7 @@ class _PodiumBlock extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (crowned) const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFC94A), size: 28),
+          if (crowned) const AppIcon(HugeIcons.strokeRoundedCrown, color: Color(0xFFFFC94A), size: 26),
           CircleAvatar(radius: 22, backgroundColor: Colors.white, child: Text(entry?.name.characters.first ?? '?')),
           const SizedBox(height: 4),
           Text(

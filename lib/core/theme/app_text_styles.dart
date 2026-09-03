@@ -1,40 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Typography tokens (Blueprint Section 3): a bold rounded display face for
-/// headlines/scores, a clean geometric sans for body/UI text. Numbers always use
-/// tabular figures so they don't jitter during countdowns.
+/// Typography tokens (Blueprint Section 3), built on three deliberately
+/// distinct Google Fonts rather than one system default — each earns its
+/// keep:
+/// - **Fredoka** for display/headline: bold, rounded, high-personality —
+///   matches the "MiMeo chunky" party-game register the blueprint calls for.
+/// - **Plus Jakarta Sans** for body/UI: a clean geometric sans that stays
+///   legible at small sizes without competing with the display face.
+/// - **Space Grotesk** for numerics: scores, coin counts, timers get a
+///   techy/tabular feel that reads as "instrumentation" rather than prose —
+///   paired with [FontFeature.tabularFigures] so digits never jitter width
+///   during countdowns.
 ///
-/// No custom font files are bundled yet — these use Flutter's platform default
-/// with the required weights/features until brand fonts are added under
-/// `assets/fonts/` (see pubspec `flutter.fonts`).
+/// These are getters, not `const` fields — [GoogleFonts] resolves lazily and
+/// caches the downloaded font file itself.
 abstract final class AppTextStyles {
   static const _tabularFigures = [FontFeature.tabularFigures()];
 
-  static const TextStyle display = TextStyle(
-    fontWeight: FontWeight.w900,
-    fontSize: 32,
-    height: 1.1,
-    letterSpacing: -0.5,
-  );
+  static TextStyle get display => GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 34, height: 1.08);
 
-  static const TextStyle headline = TextStyle(fontWeight: FontWeight.w800, fontSize: 22, height: 1.15);
+  static TextStyle get headline => GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 22, height: 1.15);
 
-  static const TextStyle body = TextStyle(fontWeight: FontWeight.w500, fontSize: 15, height: 1.4);
+  static TextStyle get body => GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w500, fontSize: 15, height: 1.4);
 
-  static const TextStyle label = TextStyle(fontWeight: FontWeight.w600, fontSize: 13, height: 1.2);
+  static TextStyle get label => GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13, height: 1.2);
 
   /// Scores, coin counts, timers — tabular figures prevent digit-width jitter.
-  static const TextStyle numeric = TextStyle(
-    fontWeight: FontWeight.w800,
-    fontSize: 20,
-    height: 1.1,
-    fontFeatures: _tabularFigures,
-  );
+  static TextStyle get numeric =>
+      GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 20, height: 1.1, fontFeatures: _tabularFigures);
 
-  static const TextStyle numericLarge = TextStyle(
-    fontWeight: FontWeight.w900,
-    fontSize: 40,
-    height: 1.0,
-    fontFeatures: _tabularFigures,
-  );
+  static TextStyle get numericLarge =>
+      GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 42, height: 1.0, fontFeatures: _tabularFigures);
+
+  /// Base [TextTheme] fallback so any un-styled `Text` widget still lands on
+  /// the body font instead of the platform default.
+  static TextTheme textTheme(TextTheme base) => GoogleFonts.plusJakartaSansTextTheme(base);
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
 import '../theme/match_palette.dart';
+import 'app_icon.dart';
 
 /// The dramatic pre-match beat (Blueprint Section 1, Image 6 / rock-paper-
 /// scissors reference): two avatars slide in from opposite edges, collide at a
@@ -106,7 +108,7 @@ class _CombatantLabel extends StatelessWidget {
           CircleAvatar(
             radius: 36,
             backgroundColor: color,
-            child: const Icon(Icons.face_rounded, color: Colors.white, size: 32),
+            child: const AppIcon(HugeIcons.strokeRoundedUserCircle02, color: Colors.white, size: 30),
           ),
           const SizedBox(height: 8),
           Text(

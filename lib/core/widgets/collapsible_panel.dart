@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
+import 'app_icon.dart';
 
 /// Caret-expandable bottom panel with internal toggles (Blueprint Section 1,
 /// voxel mini-golf scorecard reference). Used for the in-match score panel.
@@ -53,7 +55,7 @@ class _CollapsiblePanelState extends State<CollapsiblePanel> {
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.expand_more_rounded, color: widget.foregroundColor),
+                    child: AppIcon(HugeIcons.strokeRoundedArrowDown01, color: widget.foregroundColor, size: 18),
                   ),
                 ],
               ),

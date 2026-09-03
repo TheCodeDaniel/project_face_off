@@ -49,6 +49,10 @@ dependencies:
   # Offline/connectivity (Section 12)
   connectivity_plus: ^6.1.0
 
+  # Design system: icon set + typography (Section 4)
+  hugeicons: ^1.1.7
+  google_fonts: ^8.2.1
+
   # --- Credential-gated: add back once configured, see CLAUDE.md ---
   # firebase_core / firebase_auth / cloud_firestore / firebase_database:
   #   requires `flutterfire configure` against a real Firebase project first.

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
 import '../theme/lobby_palette.dart';
+import 'app_icon.dart';
 
 /// Persistent top-right currency pill (MiMeo reference, Blueprint Section 1).
 /// Wrap in [RepaintBoundary] at the call site if the coin count animates
@@ -30,7 +32,7 @@ class CoinBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.monetization_on_rounded, color: palette.coinGold, size: 18),
+            AppIcon(HugeIcons.strokeRoundedCoins01, color: palette.coinGold, size: 18),
             const SizedBox(width: 6),
             Text('$coins', style: AppTextStyles.numeric.copyWith(color: Colors.black87)),
           ],

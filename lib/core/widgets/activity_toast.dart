@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../theme/app_text_styles.dart';
+import 'app_icon.dart';
 
 /// Small, non-blocking event announcement (Blueprint Section 1, voxel mini-golf
 /// reference): "Opponent raised an eyebrow — dodged!". Call
@@ -15,7 +17,7 @@ class ActivityToast {
   static void show(
     BuildContext context, {
     required String message,
-    IconData icon = Icons.bolt_rounded,
+    List<List<dynamic>> icon = HugeIcons.strokeRoundedZap,
     Duration duration = const Duration(seconds: 2),
   }) {
     final overlay = Overlay.of(context);
@@ -32,7 +34,7 @@ class _ToastWidget extends StatefulWidget {
   const _ToastWidget({required this.message, required this.icon, required this.onDone, required this.visibleDuration});
 
   final String message;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final VoidCallback onDone;
   final Duration visibleDuration;
 
@@ -82,7 +84,7 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(widget.icon, color: Colors.white, size: 18),
+                  AppIcon(widget.icon, color: Colors.white, size: 18),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(widget.message, style: AppTextStyles.label.copyWith(color: Colors.white)),
