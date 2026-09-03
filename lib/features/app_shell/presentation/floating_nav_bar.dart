@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -8,6 +9,7 @@ import '../../../core/onboarding_tour/tour_keys.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/lobby_palette.dart';
 import '../../../core/widgets/app_icon.dart';
+import '../../friends/presentation/friends_providers.dart';
 import 'nav_visibility_controller.dart';
 
 /// Floating glass-pill bottom nav (master prompt Section 5): frosted/blurred
@@ -16,18 +18,19 @@ import 'nav_visibility_controller.dart';
 /// icon set (hugeicons) carry the read rather than three text labels
 /// competing with the gradient behind it. Auto-hides on scroll-down past a
 /// small threshold, reappears on scroll-up or after ~600ms idle, never hides
-/// while a modal is open on top of it.
-class FloatingNavBar extends StatefulWidget {
+/// while a modal is open on top of it. Also carries the Friends tab's
+/// incoming-request badge count (master prompt Section 9).
+class FloatingNavBar extends ConsumerStatefulWidget {
   const FloatingNavBar({super.key, required this.currentIndex, required this.onTabSelected});
 
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
 
   @override
-  State<FloatingNavBar> createState() => _FloatingNavBarState();
+  ConsumerState<FloatingNavBar> createState() => _FloatingNavBarState();
 }
 
-class _FloatingNavBarState extends State<FloatingNavBar> {
+class _FloatingNavBarState extends ConsumerState<FloatingNavBar> {
   static const _items = [
     (icon: HugeIcons.strokeRoundedBoxingGlove01, label: 'Play'),
     (icon: HugeIcons.strokeRoundedUserGroup, label: 'Friends'),
@@ -43,6 +46,7 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     final visibility = NavVisibilityScope.of(context);
+    final friendsBadgeCount = ref.watch(incomingRequestsCountProvider);
 
     return SafeArea(
       child: AnimatedBuilder(
@@ -86,6 +90,7 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
                         onTap: () => widget.onTabSelected(i),
                         showcaseKey: _tourKeys[i],
                         showcaseTitle: _items[i].label,
+                        badgeCount: i == 1 ? friendsBadgeCount : 0,
                       ),
                   ],
                 ),
@@ -107,6 +112,7 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
     this.showcaseKey,
     this.showcaseTitle,
+    this.badgeCount = 0,
   });
 
   final List<List<dynamic>> icon;
@@ -116,6 +122,7 @@ class _NavItem extends StatelessWidget {
   final VoidCallback onTap;
   final GlobalKey? showcaseKey;
   final String? showcaseTitle;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +140,13 @@ class _NavItem extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppIcon(icon, color: selected ? Colors.white : Colors.black54, size: 22),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AppIcon(icon, color: selected ? Colors.white : Colors.black54, size: 22),
+                if (badgeCount > 0) Positioned(right: -6, top: -4, child: _NavBadge(count: badgeCount)),
+              ],
+            ),
             AnimatedSize(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
@@ -157,6 +170,26 @@ class _NavItem extends StatelessWidget {
       description: 'Check out $showcaseTitle',
       targetShapeBorder: const CircleBorder(),
       child: button,
+    );
+  }
+}
+
+class _NavBadge extends StatelessWidget {
+  const _NavBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      constraints: const BoxConstraints(minWidth: 16),
+      decoration: const BoxDecoration(color: Color(0xFFFF4D6D), shape: BoxShape.circle),
+      child: Text(
+        count > 9 ? '9+' : '$count',
+        textAlign: TextAlign.center,
+        style: AppTextStyles.label.copyWith(color: Colors.white, fontSize: 10),
+      ),
     );
   }
 }

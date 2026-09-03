@@ -184,6 +184,31 @@ site. Frosted white reads clearly at any point on the gradient.
     around `home`, so `.first` grabs that one instead of the inner one actually hosting the screen
     under test, and `maybePop()` on the wrong Navigator is a silent no-op.
 
+## Friends tab (Section 9)
+
+- `FriendsRepository` (`lib/features/friends/domain/`) + `FakeFriendsRepository` follow the same
+  pattern as auth/matchmaking: seeded with a couple of friends and one incoming request so the UI
+  has something to show in dev builds. Real blocking needs enforcement on *both* sides — client-side
+  (immediate UX, already implemented) and server-side (a security rule / Cloud Function check at
+  matchmaking time so a block can't be bypassed by a modified client) — the server half is naturally
+  out of scope until Firebase exists.
+- Add-friend reuses `PinCodeEntry` (Section 4) for entering a friend's code; any 6-digit code
+  succeeds against the fake repo since there's no real backend to resolve one against yet.
+- `FloatingNavBar`'s Friends icon carries a live badge from `incomingRequestsCountProvider` — this
+  is why it had to become a `ConsumerStatefulWidget`.
+- Report flow requires picking one of a fixed `ReportReason` (master prompt Section 9 — not just
+  free text) plus an optional detail field; `FakeFriendsRepository.reportUser` is a no-op stand-in
+  for the real Firestore `reports` collection write. No automated moderation pipeline for v1 either
+  way — just reliable capture.
+- **Test gotcha**: don't subscribe to an `async*`-backed repository stream (`friendsStream.skip(1)
+  .first`) immediately before triggering a synchronous mutation and expect to catch the resulting
+  event — the generator's body doesn't start running until a microtask turn *after* something
+  listens, so a mutation that fires synchronously in between can be added to the broadcast
+  controller before the generator has subscribed to it, and a broadcast controller drops events with
+  no listener. Simplest fix: `await` the mutation, then take a fresh `.first` off a new subscription
+  — the generator always yields the current snapshot immediately, so no race. See
+  `test/features/friends/data/fake_friends_repository_test.dart`.
+
 ## What's stubbed pending your credentials
 
 These need accounts/config only you can provide — implemented behind clean interfaces so the rest
@@ -209,4 +234,5 @@ of the app builds and runs today, but not live-wired:
 Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
 **Play/matchmaking (done, against a fake matchmaking repo)** →
 **duel engine (done — playable end-to-end via the dev gesture-controls harness, pending real
-camera + networking)** → Friends → Profile → monetization → offline handling → performance pass.
+camera + networking)** → **Friends (done, against a fake friends repo)** → Profile → monetization →
+offline handling → performance pass.
