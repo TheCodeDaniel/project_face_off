@@ -136,19 +136,49 @@ tile/card/pill surfaces.
   are both persisted locally via `shared_preferences` (`LocalOnboardingRepository`), independent of
   auth state, so neither replays after the first session even offline.
 - **Launch splash**: `AnimatedSplashScreen` (`lib/core/widgets/`) is what `AppRoot` shows while
-  `authStateProvider`/`hasSeenOnboardingProvider` are loading — a spiral of `CustomPaint` particles
-  orbiting inward behind the app icon, which itself spins+scales+settles, followed by a staggered
-  per-letter "Face Off" reveal and a tagline fade-in. Everything rides one `AnimationController`
-  (2.2s) inside a single `RepaintBoundary`/`AnimatedBuilder` — no per-particle or per-letter
-  `AnimationController`s, no widget rebuilds outside that one subtree (engineering rules 6/7).
-  `AppRoot` holds the splash for a **minimum** 2.2s via its own `Timer` regardless of how fast the
-  providers actually resolve (against `FakeAuthRepository`'s near-instant resolve, the animation
-  would otherwise get cut off mid-play on almost every launch), then `AnimatedSwitcher` crossfades
-  into whichever screen comes next. **Gotcha**: the splash's root widget must be wrapped in a
-  `Material` (not bare `DecoratedBox`/`Stack`) — `Text` rendered with no `Material` ancestor falls
-  back to `WidgetsApp`'s debug default style, which is a loud yellow double-underline under every
-  word; easy to miss since it only shows up once you actually run the widget, not in `flutter
-  analyze`.
+  `authStateProvider`/`hasSeenOnboardingProvider` are loading. Redesigned from an initial
+  spiral-particles version into a three-beat "glove clash" (a nod to the Gogeta/Broly movie finale,
+  where their clashing fists crack reality): two gloves (`HugeIcons.strokeRoundedBoxingGlove01`, one
+  per player, in `MatchPalette`'s neon violet/cyan) throw two probing jabs that bounce off each
+  other, then a final full-force clash that cracks the screen open (`SplashCrackPainter`, jagged
+  fractures radiating from the impact point) and punches "Face Off" into place through it. The whole
+  choreography — wind-up/lunge/recoil distances, impact timings/intensities, when the crack starts,
+  when the title punches in — lives in one shared `SplashTimeline` (`lib/core/widgets/`) so the
+  pieces stay in sync from one source of truth instead of duplicated magic numbers; the gloves'
+  motion itself is one keyframe list (`keyframedValue`/`SplashKeyframe`) rather than per-beat
+  if/else branches, since both gloves and all three beats share the same distance-from-center track.
+  Runs on one `AnimationController` (3.2s) inside a single `RepaintBoundary`/`AnimatedBuilder`; deliberately
+  **no `Opacity` widgets anywhere** in this screen — every fade is baked directly into a color's
+  alpha instead (`color.withValues(alpha: ...)`), since `Opacity` forces an offscreen `saveLayer`
+  per instance and this scene fades several things in the same frame. `AppRoot` holds the splash for
+  a **minimum** 3.2s via its own `Timer` regardless of how fast the providers actually resolve
+  (against `FakeAuthRepository`'s near-instant resolve, the animation would otherwise get cut off
+  mid-play on almost every launch), then `AnimatedSwitcher` crossfades into whichever screen comes
+  next.
+  - **Gotcha**: the splash's root widget must be a `Scaffold` (not bare `Material`/`DecoratedBox`) —
+    two independent reasons. First, `Text` with no `Material` ancestor falls back to `WidgetsApp`'s
+    debug default style (a loud yellow double-underline under every word) — easy to miss since it
+    only shows up once you actually run the widget, not in `flutter analyze`. Second, and more
+    subtly: `AppRoot`'s outer `AnimatedSwitcher` lays its child out via a `Stack` whose non-positioned
+    children get *loose* constraints — a bare `Material`/`DecoratedBox` root shrink-wraps to its
+    content's width (roughly the title text) instead of filling the screen, while `Scaffold`
+    explicitly takes `constraints.biggest`, sidestepping that regardless of what its parent does.
+  - **Unresolved environment issue, not a code bug**: while building the three-beat version, the iOS
+    Simulator repeatedly rendered the right half of the screen solid black once the animation
+    finished — reproduced identically after removing every candidate cause one at a time
+    (`MaskFilter.blur`, every `Opacity` widget, the shake `Transform.translate`, the crack
+    `CustomPaint` entirely, `StrokeCap.round`), after a full `simctl shutdown`/`boot`, after fully
+    quitting and relaunching the `Simulator.app` GUI, and — the conclusive test — on a completely
+    fresh, never-before-run simulator device (a different iPhone model). Confirmed via a real macOS
+    `screencapture` of the Simulator window (not just `simctl io screenshot`) that it's genuinely
+    on-screen, not a capture artifact. Reproducing identically across a fresh device rules out
+    per-device state; surviving a full GUI+guest-OS reset points at something in this session's host
+    GPU/WindowServer state rather than the widget tree. The code was reverted to its best-known-correct
+    form (all the defensive fixes made along the way — no `Opacity`, layered-stroke glow instead of
+    blur, crack painter outside the shake transform — are good practice regardless of whether they
+    were the actual cause) rather than kept in a stripped-down diagnostic state. **If this recurs**:
+    try a different Mac/session before assuming the widget code regressed — the bisection above
+    already ruled out every widget-level suspect once.
 - **No Lottie assets exist yet** (no design files were provided) — `OnboardingIllustration`
   (`lib/features/onboarding/presentation/widgets/`) renders an animated icon-on-glass illustration
   instead and is the single documented drop-in point: swap its body for `Lottie.asset(...)` once
