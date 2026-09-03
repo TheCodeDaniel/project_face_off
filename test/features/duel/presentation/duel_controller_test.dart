@@ -10,6 +10,12 @@ void main() {
       fakeAsync((async) {
         final container = ProviderContainer();
         addTearDown(container.dispose);
+        // duelControllerProvider is autoDispose (see its doc comment) so the
+        // real DuelScreen's ref.watch tears down its Timers on exit; here we
+        // need an explicit listener to keep it alive across the test the
+        // same way that watch does, or the provider disposes itself between
+        // reads and every read after the first sees a freshly-rebuilt state.
+        container.listen(duelControllerProvider, (_, _) {});
         final controller = container.read(duelControllerProvider.notifier);
 
         controller.startMatch('Bot');
@@ -24,6 +30,7 @@ void main() {
       fakeAsync((async) {
         final container = ProviderContainer();
         addTearDown(container.dispose);
+        container.listen(duelControllerProvider, (_, _) {});
         final controller = container.read(duelControllerProvider.notifier);
 
         controller.startMatch('Bot');
@@ -42,6 +49,7 @@ void main() {
       fakeAsync((async) {
         final container = ProviderContainer();
         addTearDown(container.dispose);
+        container.listen(duelControllerProvider, (_, _) {});
         final controller = container.read(duelControllerProvider.notifier);
 
         controller.startMatch('Bot');
@@ -66,7 +74,8 @@ void main() {
         // multi-second window — asserting on the state at one fixed elapsed
         // duration is flaky (it can catch the round either mid-recap or
         // already advanced to round 2). Observe the transition instead of
-        // snapshotting a timing-dependent instant.
+        // snapshotting a timing-dependent instant. This listener also keeps
+        // the autoDispose provider alive for the test, same as the others.
         RoundResultRoundState? firstResult;
         container.listen(duelControllerProvider, (previous, next) {
           if (next is RoundResultRoundState) firstResult ??= next;
@@ -84,6 +93,7 @@ void main() {
       fakeAsync((async) {
         final container = ProviderContainer();
         addTearDown(container.dispose);
+        container.listen(duelControllerProvider, (_, _) {});
         final controller = container.read(duelControllerProvider.notifier);
 
         controller.startMatch('Bot');

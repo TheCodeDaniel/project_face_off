@@ -165,6 +165,24 @@ site. Frosted white reads clearly at any point on the gradient.
   plus the fixed 2.5s recap can land the check either mid-recap or already advanced to round 2
   depending on the draw. Fixed by observing the state transition via `container.listen` instead of
   snapshotting a timing-dependent instant; keep that pattern for any similarly randomized-delay test.
+- **Quit-mid-match confirmation**: `DuelScreen` wraps its body in a `PopScope(canPop: false, ...)` —
+  any attempt to leave (system back gesture/button, or an in-app pop) while a round is still live
+  shows `QuitMatchDialog` ("You'll forfeit this duel if you leave now.") instead of exiting
+  immediately; once the match has reached `MatchResultRoundState`, leaving is free. `duelControllerProvider`
+  is `NotifierProvider.autoDispose` specifically so that actually leaving (confirmed quit, or a
+  normal match-end exit) tears down `DuelController`'s cue/round-timeout `Timer`s — otherwise an
+  abandoned match's timers would keep firing into a screen nobody's watching.
+  - **Test gotcha**: `container.read(provider.notifier)` does *not* keep an `autoDispose` provider
+    alive — with nothing holding a listener, Riverpod disposes it almost immediately, so a second
+    `container.read` sees a freshly-rebuilt (reset) state. The real `DuelScreen` is fine because its
+    `ref.watch` in `build()` is a live listener for as long as the screen is mounted. Tests need an
+    explicit `container.listen(provider, (_, _) {})` to reproduce that — see
+    `test/features/duel/presentation/duel_controller_test.dart`.
+  - **Widget-test gotcha**: verifying `PopScope` behavior against a screen mounted under its own
+    nested `Navigator` (as in `test/features/duel/presentation/duel_screen_quit_test.dart`) needs
+    `find.byType(Navigator).last`, not `.first` — `MaterialApp` builds its own outer `Navigator`
+    around `home`, so `.first` grabs that one instead of the inner one actually hosting the screen
+    under test, and `maybePop()` on the wrong Navigator is a silent no-op.
 
 ## What's stubbed pending your credentials
 

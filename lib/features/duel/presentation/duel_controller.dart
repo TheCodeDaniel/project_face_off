@@ -8,7 +8,12 @@ import '../domain/duel_round_engine.dart';
 import '../domain/round_rules.dart';
 import '../domain/round_state.dart';
 
-final duelControllerProvider = NotifierProvider<DuelController, RoundState>(DuelController.new);
+/// `autoDispose` so leaving [DuelScreen] (whether the match finished or the
+/// player quit early via [QuitMatchDialog]) actually tears the controller
+/// down — `ref.onDispose(_cancelTimers)` below only fires once nothing is
+/// watching this anymore, otherwise an abandoned match's cue/round-timeout
+/// `Timer`s would keep firing into a screen nobody's looking at.
+final duelControllerProvider = NotifierProvider.autoDispose<DuelController, RoundState>(DuelController.new);
 
 /// Drives one live duel end-to-end against the [DuelRoundEngine] built in
 /// the first build phase. Uses `clock.now()` (package:clock), never raw
@@ -23,7 +28,7 @@ final duelControllerProvider = NotifierProvider<DuelController, RoundState>(Duel
 /// Firebase Realtime DB signaling channel (master prompt Section 8.5). Both
 /// players auto-confirm "neutral" immediately for the same reason — there's
 /// no face to actually check yet.
-class DuelController extends Notifier<RoundState> {
+class DuelController extends AutoDisposeNotifier<RoundState> {
   static const meId = 'me';
   static const opponentId = 'opponent';
 
