@@ -7,6 +7,7 @@ import '../../../core/theme/lobby_palette.dart';
 import '../../../core/widgets/app_icon.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../core/widgets/primary_pill_button.dart';
+import '../../../core/widgets/shimmer_card.dart';
 
 /// FAQ & support (master prompt Section 10): static content plus a support
 /// contact action — implemented fully via a real `mailto:` intent rather
@@ -75,10 +76,10 @@ class _FaqTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
-    return Container(
+    return ShimmerCard(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: palette.cardBackground, borderRadius: BorderRadius.circular(16)),
+      borderRadius: BorderRadius.circular(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

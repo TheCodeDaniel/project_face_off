@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
 import '../../../../core/widgets/app_icon.dart';
+import '../../../../core/widgets/shimmer_card.dart';
 import '../../../auth/presentation/auth_providers.dart';
 import '../faq_support_screen.dart';
 import '../notification_settings_controller.dart';
@@ -21,8 +22,8 @@ class SettingsSection extends ConsumerWidget {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     final notificationsEnabled = ref.watch(notificationSettingsControllerProvider).valueOrNull ?? true;
 
-    return Container(
-      decoration: BoxDecoration(color: palette.cardBackground, borderRadius: BorderRadius.circular(20)),
+    return ShimmerCard(
+      borderRadius: BorderRadius.circular(20),
       child: Column(
         children: [
           SwitchListTile(

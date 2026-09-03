@@ -4,6 +4,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/lobby_palette.dart';
 import 'app_icon.dart';
+import 'shimmer_card.dart';
 
 class LeaderboardEntry {
   const LeaderboardEntry({required this.name, required this.score, this.avatarUrl});
@@ -122,11 +123,10 @@ class _RankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
-    return Container(
+    return ShimmerCard(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: palette.cardBackground, borderRadius: BorderRadius.circular(14)),
+      borderRadius: BorderRadius.circular(14),
       child: Row(
         children: [
           Text('$rank', style: AppTextStyles.label.copyWith(color: Colors.black45)),

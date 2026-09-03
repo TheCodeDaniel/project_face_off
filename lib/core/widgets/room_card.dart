@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_text_styles.dart';
 import '../theme/lobby_palette.dart';
+import 'shimmer_card.dart';
 
 /// Card-based room-browser entry (Blueprint Section 1, Image 2): category chip,
 /// stacked-avatar occupants, capacity, CTA pill. Demo:
@@ -33,13 +34,10 @@ class RoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
-    return Container(
+    return ShimmerCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: palette.cardBackground,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
       child: Row(
         children: [
           Container(

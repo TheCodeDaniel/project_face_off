@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_text_styles.dart';
-import '../theme/lobby_palette.dart';
 import 'app_icon.dart';
 import 'primary_pill_button.dart';
+import 'shimmer_card.dart';
 
 /// Shared confirm/cancel dialog shell for lobby-register screens (light
 /// card, not the dark match palette — see `QuitMatchDialog` for that
@@ -62,12 +62,11 @@ class LobbyConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: Container(
+      child: ShimmerCard(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-        decoration: BoxDecoration(color: palette.cardBackground, borderRadius: BorderRadius.circular(24)),
+        borderRadius: BorderRadius.circular(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

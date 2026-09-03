@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/lobby_palette.dart';
 import 'app_icon.dart';
+import 'shimmer_card.dart';
 
 /// One tile in the 4-grid Profile stat pattern (Blueprint Section 1, quiz-app
 /// reference). Demo:
@@ -24,13 +25,10 @@ class StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
-    return Container(
+    return ShimmerCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.cardBackground,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,

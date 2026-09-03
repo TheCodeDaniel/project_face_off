@@ -61,7 +61,8 @@ Two `ThemeExtension`s, no raw hex colors outside `lib/core/theme/`:
 
 Core reusable widgets live in `lib/core/widgets/`, one file each: `GradientScaffold`, `CoinBadge`,
 `PodiumLeaderboard`, `RoomCard`, `PinCodeEntry`, `ActivityToast`, `CollapsiblePanel`, `StatTile`,
-`DuelVsTransition`, `PrimaryPillButton`, `SecondaryPillButton`.
+`DuelVsTransition`, `PrimaryPillButton`, `SecondaryPillButton`, `ShimmerCard`,
+`LobbyConfirmationDialog`.
 
 **Typography** (`google_fonts`, via `AppTextStyles`): three fonts, each with a job — Fredoka
 (bold/rounded) for display & headline text, Plus Jakarta Sans (clean geometric) for body & label
@@ -84,6 +85,23 @@ the design ask.
 in `LobbyPalette.gradientStart`. The outline version was nearly invisible — a deep-violet border
 has too little contrast against the violet→magenta→orange gradient it sits on at almost every use
 site. Frosted white reads clearly at any point on the gradient.
+
+**`ShimmerCard`** (`lib/core/widgets/shimmer_card.dart`) is the drop-in replacement for a plain
+`Container(decoration: BoxDecoration(color: palette.cardBackground, ...))` — every cream
+tile/card/pill/dialog in the lobby register goes through it now (`StatTile`, `RoomCard`,
+`CoinBadge`, `PodiumLeaderboard`'s rank rows, `LobbyConfirmationDialog`, the cosmetics tiles,
+settings card, subscription card, friend list tile, FAQ tiles) instead of each one repainting a
+flat cream box. It adds a rare diagonal silver-white sheen that sweeps across the surface (every
+5-9s, randomized per instance so tiles on the same screen don't glow in lockstep) — a deliberate
+"occasional," not constant, animation so the cream surfaces read as glossy rather than flat without
+becoming a distraction. Uses a cancelable `Timer` (not `Future.delayed`, which can't be aborted in
+`dispose()` and left a pending timer past teardown, failing `flutter_test`'s
+"no pending timers" invariant on any screen using it) and wraps its own `RepaintBoundary` per
+engineering rule 6. The large full-bleed bottom sheets (`HowToPlaySheet`, `AddFriendSheet`,
+`FriendActionsSheet`, `ReportUserSheet`) deliberately keep their plain cream background rather than
+adopting the sweep — a moving highlight across an entire modal's background, behind live form
+controls, read as more distracting than glossy at that scale; the effect is reserved for bounded
+tile/card/pill surfaces.
 
 ## Duel game engine (the core of the app)
 

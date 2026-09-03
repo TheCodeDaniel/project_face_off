@@ -4,6 +4,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
 import '../../../../core/widgets/app_icon.dart';
+import '../../../../core/widgets/shimmer_card.dart';
 import '../../domain/friend.dart';
 
 /// One row in the friends list (master prompt Section 9): online/offline
@@ -18,9 +19,9 @@ class FriendListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
-    return Container(
+    return ShimmerCard(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(color: palette.cardBackground, borderRadius: BorderRadius.circular(18)),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,

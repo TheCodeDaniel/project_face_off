@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
 import '../../../../core/widgets/app_icon.dart';
+import '../../../../core/widgets/shimmer_card.dart';
 import '../../domain/cosmetic.dart';
 import '../profile_providers.dart';
 
@@ -43,37 +44,36 @@ class _CosmeticTile extends ConsumerWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: cosmetic.owned ? () => ref.read(profileRepositoryProvider).equipCosmetic(cosmetic.id) : null,
-      child: Container(
+      child: SizedBox(
         width: 80,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: palette.cardBackground,
+        child: ShimmerCard(
+          padding: const EdgeInsets.all(10),
           borderRadius: BorderRadius.circular(16),
           border: cosmetic.equipped ? Border.all(color: palette.gradientMid, width: 2) : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                AppIcon(cosmetic.icon, color: cosmetic.owned ? palette.gradientStart : Colors.black26, size: 28),
-                if (!cosmetic.owned)
-                  const Positioned(
-                    right: -4,
-                    bottom: -4,
-                    child: AppIcon(HugeIcons.strokeRoundedLocked, color: Colors.black45, size: 14),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              cosmetic.name,
-              style: AppTextStyles.label.copyWith(color: Colors.black87, fontSize: 11),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  AppIcon(cosmetic.icon, color: cosmetic.owned ? palette.gradientStart : Colors.black26, size: 28),
+                  if (!cosmetic.owned)
+                    const Positioned(
+                      right: -4,
+                      bottom: -4,
+                      child: AppIcon(HugeIcons.strokeRoundedLocked, color: Colors.black45, size: 14),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                cosmetic.name,
+                style: AppTextStyles.label.copyWith(color: Colors.black87, fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
