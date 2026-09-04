@@ -9,6 +9,7 @@ import '../../../../core/game_engine/match_offline_pause_provider.dart';
 import '../../../../core/game_engine/match_state.dart';
 import '../../../../core/theme/match_palette.dart';
 import '../../../../core/widgets/activity_toast.dart';
+import '../../../../core/widgets/floating_label_layer.dart';
 import '../../../../core/widgets/game_match_result_view.dart';
 import '../../../../core/widgets/match_header.dart';
 import '../../../../core/widgets/quit_match_dialog.dart';
@@ -40,6 +41,9 @@ class FreezeScreen extends ConsumerStatefulWidget {
 }
 
 class _FreezeScreenState extends ConsumerState<FreezeScreen> {
+  final _labelController = FloatingLabelController();
+  Size _visualAreaSize = Size.zero;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +76,15 @@ class _FreezeScreenState extends ConsumerState<FreezeScreen> {
     ref.listen(matchControllerProvider, (previous, next) {
       if (next is RoundRecapMatchState && previous is! RoundRecapMatchState) {
         ActivityToast.show(context, message: freezeOutcomeMessage(next.outcome, widget.opponentName));
+        final iWon = next.outcome.winnerId == MatchController.meId;
+        final isDraw = next.outcome.winnerId == null;
+        final labelColor = isDraw ? Colors.white70 : (iWon ? palette.neonCyan : palette.hotRed);
+        final labelText = isDraw ? 'SAFE' : (iWon ? 'SAFE!' : 'BUSTED!');
+        _labelController.spawn(
+          text: labelText,
+          position: Offset(_visualAreaSize.width / 2 - 30, _visualAreaSize.height * 0.4),
+          color: labelColor,
+        );
       }
     });
 
@@ -131,19 +144,26 @@ class _FreezeScreenState extends ConsumerState<FreezeScreen> {
                 ),
                 if (isOfflinePaused) const ReconnectingBanner(),
                 Expanded(
-                  child: Center(
-                    child: matchState is MatchCompleteMatchState
-                        ? GameMatchResultView(
-                            result: matchState,
-                            matchId: widget.matchId,
-                            opponentId: widget.opponentId,
-                            opponentLabel: widget.opponentName,
-                          )
-                        : ListenableBuilder(
-                            listenable: controller.activeModule as FreezeGameModule,
-                            builder: (context, _) =>
-                                FreezePhaseView(state: (controller.activeModule as FreezeGameModule).freezeState),
-                          ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      _visualAreaSize = constraints.biggest;
+                      return Center(
+                        child: matchState is MatchCompleteMatchState
+                            ? GameMatchResultView(
+                                result: matchState,
+                                matchId: widget.matchId,
+                                opponentId: widget.opponentId,
+                                opponentLabel: widget.opponentName,
+                              )
+                            : ListenableBuilder(
+                                listenable: controller.activeModule as FreezeGameModule,
+                                builder: (context, _) => FreezePhaseView(
+                                  state: (controller.activeModule as FreezeGameModule).freezeState,
+                                  labelController: _labelController,
+                                ),
+                              ),
+                      );
+                    },
                   ),
                 ),
                 if (matchState is! MatchCompleteMatchState)
