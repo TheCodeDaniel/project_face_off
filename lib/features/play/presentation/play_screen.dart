@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:showcaseview/showcaseview.dart';
 
 import '../../../core/onboarding_tour/tour_keys.dart';
+import '../../../core/onboarding_tour/tour_style.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/coin_badge.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
@@ -45,11 +45,11 @@ class PlayScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               _OnlineIndicator(count: onlineCount),
               const SizedBox(height: 32),
-              Showcase(
+              tourShowcase(
                 key: TourKeys.quickMatch,
                 title: 'Quick Match',
                 description: 'Jump into a random duel the moment you\'re ready.',
-                targetBorderRadius: BorderRadius.circular(999),
+                targetShapeBorder: const StadiumBorder(),
                 child: PrimaryPillButton(
                   label: 'Quick Match',
                   icon: HugeIcons.strokeRoundedZap,

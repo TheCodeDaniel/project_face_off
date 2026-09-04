@@ -183,6 +183,34 @@ tile/card/pill surfaces.
   the Quick Match button plus the Friends and Profile nav items themselves (as the discoverable
   entry points into those sections). `TourKeys` (`lib/core/onboarding_tour/`) holds the shared
   `GlobalKey`s so `app_shell` and `play` don't reach into each other's internals to wire it up.
+- **`showcaseview` upgraded 3.0.0 → 5.1.0** after a real bug report: on first sign-in the tour would
+  flash on screen for a frame and then silently fail. Root cause was the trigger pattern, not the
+  target widgets — `AppShellScreen` used to wrap the shell in `ShowCaseWidget` and call
+  `WidgetsBinding.instance.addPostFrameCallback` to start the tour *inside that widget's own
+  `builder`*, which re-runs on every `AppShellScreen` rebuild (every tab switch, every Friends-badge
+  count change from `incomingRequestsCountProvider`, ...); a `_tourTriggerAttempted` flag guarded
+  against re-starting, but the async gap in `await hasSeenTour()` before that flag's effect was
+  fully settled was exactly the kind of race 5.x's changelog lists multiple fixes for (null-check
+  crash in `didUpdateWidget`, "missing target" handling, async-sequence-transition guards). Migrated
+  off the now-deprecated context-dependent `ShowCaseWidget` onto `ShowcaseView.register()`/`.get()`:
+  `AppShellScreen` registers once in `initState` and starts the tour once via a single
+  `initState`-scoped `addPostFrameCallback`, unregistering in `dispose` — no context threading, no
+  re-triggering on rebuild, so the whole bug class doesn't apply rather than being patched around.
+- **Tour redesigned to look intentional, not like a bolted-on library default** — `tourShowcase()`
+  and `tourActions()` (`lib/core/onboarding_tour/tour_style.dart`) give every `Showcase` a shared,
+  on-brand look: frosted deep-violet tooltip (`LobbyPalette.gradientStart`), white
+  title/description in `AppTextStyles`, backdrop blur, and global "Skip"/"Next"/"Got it" actions
+  (frosted white / coin-gold) instead of the package's plain default white card with text-only
+  buttons. "Skip" hides itself on the last step (`hideActionWidgetForShowcase: [TourKeys.profileNav]`)
+  since there's nothing left to skip; "Next" swaps for "Got it" there — both are still just the
+  `.next` action, since `ShowcaseView.next()` finishes the whole tour automatically once there's no
+  step left, so no special-casing was needed for the last step's button behavior, only its label.
+  - **Test gotcha**: same as the existing `app_root_test.dart` note on this tour — don't
+    `pumpAndSettle()` once a showcase step is on screen; it runs a continuous highlight animation
+    that never settles, so `pumpAndSettle()` times out. Use fixed-duration `pump()`s instead (see
+    `test/features/app_shell/product_tour_test.dart`, which also needed several small pumps before
+    the first step's fixed-duration one — the post-frame callback's `await hasSeenTour()` plus the
+    target's own layout need more than one frame to resolve in a test environment).
 
 ## Play tab & matchmaking (Section 7)
 

@@ -43,7 +43,7 @@ dependencies:
   go_router: ^14.6.2
 
   # Onboarding + animation (Section 6)
-  showcaseview: ^3.0.0
+  showcaseview: ^5.1.0
   lottie: ^3.3.1
 
   # Offline/connectivity (Section 12)

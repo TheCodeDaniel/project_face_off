@@ -3,9 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:showcaseview/showcaseview.dart';
 
 import '../../../core/onboarding_tour/tour_keys.dart';
+import '../../../core/onboarding_tour/tour_style.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/lobby_palette.dart';
 import '../../../core/widgets/app_icon.dart';
@@ -164,10 +164,10 @@ class _NavItem extends StatelessWidget {
 
     final key = showcaseKey;
     if (key == null) return button;
-    return Showcase(
+    return tourShowcase(
       key: key,
-      title: showcaseTitle,
-      description: 'Check out $showcaseTitle',
+      title: showcaseTitle!,
+      description: 'Tap here to head to $showcaseTitle.',
       targetShapeBorder: const CircleBorder(),
       child: button,
     );

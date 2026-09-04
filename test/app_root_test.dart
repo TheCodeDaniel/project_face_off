@@ -27,6 +27,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.text('Face Off'), findsOneWidget);
-    expect(find.text('Quick Match'), findsOneWidget);
+    // findsWidgets, not findsOneWidget: the post-sign-in product tour's
+    // first Showcase step titles itself "Quick Match" too, so this text now
+    // legitimately appears twice — once on the button, once in the tour
+    // tooltip highlighting it.
+    expect(find.text('Quick Match'), findsWidgets);
   });
 }
