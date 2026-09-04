@@ -29,9 +29,11 @@ import 'widgets/face_off_phase_view.dart';
 /// [gameId] is passed in rather than picked here — whoever hands off to this
 /// screen (`MatchFoundScreen` for Quick Match, a friend-challenge flow for a
 /// private match) already resolved which game the match is for (multi-game
-/// plan Section 3.5); this screen just plays it. Rematch reuses the same
-/// [gameId] rather than re-rolling a random one — "rematch" reads as "play
-/// this game again," not "surprise me with a different one."
+/// plan Section 3.5); this screen just plays it. [matchId]/[opponentId] are
+/// the real match/player identities `GameMatchResultView` needs for Rematch/
+/// Add Friend/Report/Block (post-match flow plan) — distinct from
+/// `MatchController`'s own internal `'me'`/`'opponent'` round-engine slot
+/// labels, which never leave the local game engine.
 ///
 /// Wrapped in a [PopScope] that intercepts any attempt to leave — system
 /// back gesture/button, or an in-app pop — while a round is still live and
@@ -42,8 +44,16 @@ import 'widgets/face_off_phase_view.dart';
 /// edge-swipe gesture isn't an obvious affordance mid-match, so `PopScope`
 /// alone left no discoverable way out.
 class FaceOffScreen extends ConsumerStatefulWidget {
-  const FaceOffScreen({super.key, required this.opponentName, this.gameId = GameId.faceOff});
+  const FaceOffScreen({
+    super.key,
+    required this.matchId,
+    required this.opponentId,
+    required this.opponentName,
+    this.gameId = GameId.faceOff,
+  });
 
+  final String matchId;
+  final String opponentId;
   final String opponentName;
   final GameId gameId;
 
@@ -144,9 +154,9 @@ class _FaceOffScreenState extends ConsumerState<FaceOffScreen> {
                     child: matchState is MatchCompleteMatchState
                         ? GameMatchResultView(
                             result: matchState,
+                            matchId: widget.matchId,
+                            opponentId: widget.opponentId,
                             opponentLabel: widget.opponentName,
-                            onRematch: () => controller.startMatch(widget.gameId, widget.opponentName),
-                            onExit: () => Navigator.of(context).popUntil((r) => r.isFirst),
                           )
                         : ListenableBuilder(
                             listenable: controller.activeModule as FaceOffGameModule,

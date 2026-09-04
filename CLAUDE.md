@@ -780,6 +780,70 @@ of the app builds and runs today, but not live-wired:
 - **Lottie onboarding illustrations** — no design assets provided; see `OnboardingIllustration`
   above for the drop-in point once real `.json` files exist.
 
+## Post-match flow (`docs/face-off-postmatch-flow-plan.md`)
+
+Corrects/extends the results screen implied but underspecified in the original build prompt —
+continuous-play, Omegle/Monkey-style: the fastest action after a match is always "find someone
+new," and anything that continues with the *same* opponent is a deliberate, consenting action.
+
+- **`GameMatchResultView`** (`core/widgets/`, shared by every game per the multi-game plan) is now a
+  `ConsumerStatefulWidget` with three distinct actions plus a report/block shortcut, not just
+  "Rematch"/"Back to Play": **Next** (primary — instant re-queue into normal Quick Match, the exact
+  same `MatchmakingScreen` push `PlayScreen`'s own Quick Match button uses, just a second entry
+  point), **Rematch** (secondary — an ephemeral live request to *this specific opponent*, Section
+  3), **Add Friend**/**Report**/**Block** (small tertiary actions, deliberately one tap away here
+  rather than buried in the Friends tab, since post-match is exactly when someone is most likely to
+  want to report bad behavior), plus a low-emphasis "Back to Play" text button.
+- **`opponentId` now flows end-to-end** — `MatchmakingFound`/`FakeMatchmakingRepository` (Play tab),
+  `MatchFoundScreen`, `buildGameScreen`, and all three game screens (`FaceOffScreen`/
+  `BowDrawScreen`/`FreezeScreen`) all carry a real opponent id now, distinct from
+  `MatchController`'s own internal `'me'`/`'opponent'` round-engine slot labels (which never leave
+  the local game engine). This is what lets Rematch/Add Friend/Report/Block target the actual
+  player instead of a display-name string. `MatchmakingFound.opponentId` is a documented
+  client-local stand-in (`'bot-${name}'`) for now, same status as every other pre-Firebase system.
+- **Rematch requests** (`core/game_engine/rematch/`): `RematchRepository`/`FakeRematchRepository`
+  follow the same fake-backend pattern as every other feature — the real implementation is a
+  lightweight ephemeral Realtime DB node (`/rematchRequests/{matchId}`), not Firestore, cleared on
+  accept/decline/timeout. `FakeRematchRepository` simulates the "opponent" responding after a random
+  delay (70% accept), and with a documented `1/6` chance never responds at all — simulating the
+  opponent having left the results screen already, which is what actually resolves as a timeout
+  (v1 is in-app-only: no push notification wakes a backgrounded opponent to answer). `RematchController`
+  (a plain `AutoDisposeNotifier`, not tied to any one game) owns the live countdown
+  (`MatchRules.rematchRequestTimeout`, 18s) via a `Timer.periodic`, using `clock.now()` per
+  engineering rule 10 so it's `fake_async`-testable. Accepting skips the matchmaking queue entirely
+  and goes straight into a new `MatchFoundScreen` (still re-randomizing the game, not replaying the
+  same one — the plan's documented v1 default) — declining/timing out revert to the normal button
+  state after a few seconds so the message is actually readable, not "no error state, no dead end."
+- **`FriendsRepository.sendRequestToPlayer(playerId, displayName)`** is the new Add Friend entry
+  point — reuses the exact same no-op-success shape as `sendRequestByCode` (still
+  no real recipient inbox to write into with only one simulated user), just skips the code-exchange
+  step since the opponent's identity is already known from the match. No Friends-tab schema change.
+- **Idle-results-screen timeout** (`MatchRules.resultsScreenIdleTimeout`, 35s): a player who takes
+  no action at all is auto-returned to the Play tab home — a plain `Timer` started in
+  `GameMatchResultView`'s `initState`, cancelled (never restarted) the first time *any* of its
+  actions fires. Distinct from, and much longer than, the 18s rematch-request timeout.
+- **Consolidated timeout table** (plan Section 4) — the existing constants already matched the
+  plan's own numbers with no changes needed: matchmaking queue 20s, in-round no-input 8s
+  (`RoundRules.roundTimeout`), mid-match reconnect grace 20s (`MatchRules.offlineForfeitTimeout`).
+  Only the rematch-request and idle-results-screen timeouts were new.
+- **Two real navigation bugs found and fixed while wiring this up**, both the same shape as an
+  earlier one in `FriendActionsSheet`'s challenge flow: `_handleNext`/`_handleRematchAccepted`
+  originally called `Navigator.of(context).popUntil(...)` and then immediately reused the same
+  `context` for a second `Navigator.of(context, rootNavigator: true)` lookup — `popUntil` can
+  deactivate that context synchronously, making the second lookup unsafe to assume works. Fixed by
+  capturing the root navigator reference *before* the pop, same pattern as the Friends fix. Caught
+  by a real widget test, not by inspection.
+- **Widget-test gotcha, same shape as the product tour's**: a widget test that pushes a real
+  `MaterialPageRoute` from inside a `ref.listen` callback triggered by an async stream event
+  (rather than a direct user gesture) can hit a `fake_async`/`AnimationController` ticker-timing
+  assertion (`elapsedInSeconds >= 0.0`) that's specific to the test harness's synthetic clock, not a
+  real app defect. Worked around by testing that specific transition at the controller level
+  (`RematchController`'s own unit tests) instead of forcing it through a full widget-level
+  navigation assertion. Relatedly: `pumpAndSettle()` must never be used once navigation lands on a
+  screen with its own continuously-rescheduling timers (a live match's round timers, or even just
+  `MatchmakingSearchingView`'s pulse) — fixed-duration `pump()`s only past that point, consistent
+  with the existing product-tour lesson.
+
 ## Build order (from master prompt, keep committing per section)
 
 Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
@@ -790,7 +854,9 @@ camera + networking)** → **Friends (done, against a fake friends repo)** →
 package-picker/purchase UI flow built against the fake repo, pending real API keys)** →
 **offline handling (done)** → **performance pass (done — device-capability tiering, a
 RepaintBoundary/Opacity audit; on-device profiling and gesture-pipeline fps validation are pending
-the real gesture engine and a physical device, both out of scope until the games section)**.
+the real gesture engine and a physical device, both out of scope until the games section)** →
+**multi-game expansion (done — Face Off/Bow & Draw/Freeze, see "Multi-game architecture" above)** →
+**post-match flow (done — see "Post-match flow" above)**.
 
 Every master-prompt section is now built, and the scope has grown per
 `docs/face-off-multigame-plan.md`: **the entire multi-game expansion (Sections 1-8 of that plan) is

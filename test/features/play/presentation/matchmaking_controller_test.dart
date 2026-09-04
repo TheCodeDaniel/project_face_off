@@ -31,7 +31,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(container.read(matchmakingControllerProvider), isA<MatchmakingSearching>());
 
-      const found = MatchmakingFound(matchId: 'm1', opponentName: 'Ama');
+      const found = MatchmakingFound(matchId: 'm1', opponentId: 'bot-ama', opponentName: 'Ama');
       source.add(found);
       await Future<void>.delayed(Duration.zero);
       expect(container.read(matchmakingControllerProvider), same(found));
@@ -65,7 +65,7 @@ void main() {
       container.read(matchmakingControllerProvider.notifier).cancelQueue();
       expect(container.read(matchmakingControllerProvider), isA<MatchmakingIdle>());
 
-      source.add(const MatchmakingFound(matchId: 'late', opponentName: 'Zara'));
+      source.add(const MatchmakingFound(matchId: 'late', opponentId: 'bot-zara', opponentName: 'Zara'));
       await Future<void>.delayed(Duration.zero);
       expect(container.read(matchmakingControllerProvider), isA<MatchmakingIdle>());
     });

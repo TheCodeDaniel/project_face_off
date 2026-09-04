@@ -71,6 +71,7 @@ class FriendActionsSheet extends ConsumerWidget {
                     MaterialPageRoute(
                       builder: (_) => MatchFoundScreen(
                         matchId: 'private-${friend.id}',
+                        opponentId: friend.id,
                         opponentName: friend.displayName,
                         presetGameId: choice.gameId,
                       ),

@@ -85,5 +85,13 @@ void main() {
 
       await expectLater(repo.reportUser('f1', ReportReason.harassment, 'details'), completes);
     });
+
+    test('sendRequestToPlayer completes without throwing — the results screen Add Friend entry point', () async {
+      // Same shared no-op-success shape as sendRequestByCode (post-match
+      // flow plan Section 2/6: "same backend, just a second entry point").
+      final repo = FakeFriendsRepository();
+
+      await expectLater(repo.sendRequestToPlayer('bot-ama', 'Ama'), completes);
+    });
   });
 }

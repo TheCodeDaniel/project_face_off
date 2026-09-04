@@ -14,4 +14,17 @@ abstract final class MatchRules {
   /// Grace period after this device loses connectivity mid-match before the
   /// match is forfeited (master prompt Section 12 / Blueprint Section 5).
   static const Duration offlineForfeitTimeout = Duration(seconds: 20);
+
+  /// How long a rematch request stays open before auto-expiring back to the
+  /// requester's normal results-screen state (post-match flow plan Section 4
+  /// consolidated timeout table). v1 is in-app-only — this window only
+  /// matters while both players are still on the results screen; no push
+  /// notification wakes a backgrounded opponent to answer it.
+  static const Duration rematchRequestTimeout = Duration(seconds: 18);
+
+  /// A player who takes no action at all on the results screen (doesn't tap
+  /// Next/Rematch/Add Friend/Report/Block) is auto-returned to the Play tab
+  /// home after this — distinct from, and much longer than,
+  /// [rematchRequestTimeout] (post-match flow plan Section 4).
+  static const Duration resultsScreenIdleTimeout = Duration(seconds: 35);
 }

@@ -43,7 +43,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
       if (next is MatchmakingFound) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => MatchFoundScreen(matchId: next.matchId, opponentName: next.opponentName),
+            builder: (_) =>
+                MatchFoundScreen(matchId: next.matchId, opponentId: next.opponentId, opponentName: next.opponentName),
           ),
         );
       }

@@ -22,8 +22,16 @@ import 'widgets/freeze_phase_view.dart';
 /// comment for the shared match-chrome/`GameModule` split rationale), just
 /// delegating round-phase detail to [FreezePhaseView] instead.
 class FreezeScreen extends ConsumerStatefulWidget {
-  const FreezeScreen({super.key, required this.opponentName, this.gameId = GameId.freeze});
+  const FreezeScreen({
+    super.key,
+    required this.matchId,
+    required this.opponentId,
+    required this.opponentName,
+    this.gameId = GameId.freeze,
+  });
 
+  final String matchId;
+  final String opponentId;
   final String opponentName;
   final GameId gameId;
 
@@ -120,9 +128,9 @@ class _FreezeScreenState extends ConsumerState<FreezeScreen> {
                     child: matchState is MatchCompleteMatchState
                         ? GameMatchResultView(
                             result: matchState,
+                            matchId: widget.matchId,
+                            opponentId: widget.opponentId,
                             opponentLabel: widget.opponentName,
-                            onRematch: () => controller.startMatch(widget.gameId, widget.opponentName),
-                            onExit: () => Navigator.of(context).popUntil((r) => r.isFirst),
                           )
                         : ListenableBuilder(
                             listenable: controller.activeModule as FreezeGameModule,

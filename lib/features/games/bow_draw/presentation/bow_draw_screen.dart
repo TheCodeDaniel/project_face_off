@@ -22,8 +22,16 @@ import 'widgets/dev_draw_controls.dart';
 /// doc comment for the shared match-chrome/`GameModule` split rationale),
 /// just delegating round-phase detail to [BowDrawPhaseView] instead.
 class BowDrawScreen extends ConsumerStatefulWidget {
-  const BowDrawScreen({super.key, required this.opponentName, this.gameId = GameId.bowDraw});
+  const BowDrawScreen({
+    super.key,
+    required this.matchId,
+    required this.opponentId,
+    required this.opponentName,
+    this.gameId = GameId.bowDraw,
+  });
 
+  final String matchId;
+  final String opponentId;
   final String opponentName;
   final GameId gameId;
 
@@ -121,9 +129,9 @@ class _BowDrawScreenState extends ConsumerState<BowDrawScreen> {
                     child: matchState is MatchCompleteMatchState
                         ? GameMatchResultView(
                             result: matchState,
+                            matchId: widget.matchId,
+                            opponentId: widget.opponentId,
                             opponentLabel: widget.opponentName,
-                            onRematch: () => controller.startMatch(widget.gameId, widget.opponentName),
-                            onExit: () => Navigator.of(context).popUntil((r) => r.isFirst),
                           )
                         : ListenableBuilder(
                             listenable: controller.activeModule as BowDrawGameModule,

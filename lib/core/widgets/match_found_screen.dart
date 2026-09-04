@@ -21,9 +21,16 @@ import 'game_rules_card.dart';
 /// (not re-picked on every rebuild) so the rules card and the match itself
 /// agree on the same game.
 class MatchFoundScreen extends StatefulWidget {
-  const MatchFoundScreen({super.key, required this.matchId, required this.opponentName, this.presetGameId});
+  const MatchFoundScreen({
+    super.key,
+    required this.matchId,
+    required this.opponentId,
+    required this.opponentName,
+    this.presetGameId,
+  });
 
   final String matchId;
+  final String opponentId;
   final String opponentName;
   final GameId? presetGameId;
 
@@ -73,7 +80,14 @@ class _MatchFoundScreenState extends State<MatchFoundScreen> with SingleTickerPr
         rightLabel: widget.opponentName,
         onComplete: () {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => buildGameScreen(_gameId, opponentName: widget.opponentName)),
+            MaterialPageRoute(
+              builder: (_) => buildGameScreen(
+                _gameId,
+                matchId: widget.matchId,
+                opponentId: widget.opponentId,
+                opponentName: widget.opponentName,
+              ),
+            ),
           );
         },
       ),

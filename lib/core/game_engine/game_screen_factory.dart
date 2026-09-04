@@ -10,10 +10,25 @@ import 'game_pool.dart';
 /// importing a game feature's own presentation class). `MatchFoundScreen`
 /// and the Friends challenge flow both call this instead of hardcoding a
 /// single game's screen, so neither needs updating when a new game ships.
-Widget buildGameScreen(GameId gameId, {required String opponentName}) {
+Widget buildGameScreen(
+  GameId gameId, {
+  required String matchId,
+  required String opponentId,
+  required String opponentName,
+}) {
   return switch (gameId) {
-    GameId.faceOff => FaceOffScreen(opponentName: opponentName, gameId: gameId),
-    GameId.bowDraw => BowDrawScreen(opponentName: opponentName, gameId: gameId),
-    GameId.freeze => FreezeScreen(opponentName: opponentName, gameId: gameId),
+    GameId.faceOff => FaceOffScreen(
+      matchId: matchId,
+      opponentId: opponentId,
+      opponentName: opponentName,
+      gameId: gameId,
+    ),
+    GameId.bowDraw => BowDrawScreen(
+      matchId: matchId,
+      opponentId: opponentId,
+      opponentName: opponentName,
+      gameId: gameId,
+    ),
+    GameId.freeze => FreezeScreen(matchId: matchId, opponentId: opponentId, opponentName: opponentName, gameId: gameId),
   };
 }

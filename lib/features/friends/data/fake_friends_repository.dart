@@ -61,6 +61,13 @@ class FakeFriendsRepository implements FriendsRepository {
   }
 
   @override
+  Future<void> sendRequestToPlayer(String playerId, String displayName) async {
+    // Same no-op-success shape as sendRequestByCode — there's no real
+    // recipient inbox to write into yet with only one simulated user.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+
+  @override
   Future<void> acceptRequest(String requestId) async {
     final request = _requests.firstWhere((r) => r.id == requestId);
     _requests.removeWhere((r) => r.id == requestId);

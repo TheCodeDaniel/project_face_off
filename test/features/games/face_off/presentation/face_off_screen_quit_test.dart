@@ -13,7 +13,9 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light,
           home: Navigator(
-            onGenerateRoute: (settings) => MaterialPageRoute(builder: (_) => const FaceOffScreen(opponentName: 'Bot')),
+            onGenerateRoute: (settings) => MaterialPageRoute(
+              builder: (_) => const FaceOffScreen(matchId: 'm1', opponentId: 'bot-1', opponentName: 'Bot'),
+            ),
           ),
         ),
       ),
