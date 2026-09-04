@@ -11,7 +11,7 @@ class _FakeDeviceTierService implements DeviceTierService {
   int resolveCallCount = 0;
 
   @override
-  DeviceTier resolveTier() {
+  Future<DeviceTier> resolveTier() async {
     resolveCallCount++;
     return tier;
   }

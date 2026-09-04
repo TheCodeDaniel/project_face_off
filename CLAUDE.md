@@ -508,14 +508,41 @@ The full RevenueCat package-picker → purchase UI flow is built and real, runni
   device-capability tiering system Blueprint Section 6 asks for, a `RepaintBoundary` audit, an
   `Opacity`-usage audit, and a `dart fix --apply` pass (nothing to fix — const discipline had already
   held throughout the build).
-- **`DeviceTier`** (`lib/core/performance/`) buckets the device into `low`/`mid`/`high` using logical
-  CPU core count (`Platform.numberOfProcessors`) — a genuinely "lightweight" signal (Blueprint
-  Section 6's own wording) available with no new plugin dependency. `DeviceTierRepository` caches the
-  resolved tier in `shared_preferences` on first resolution, same pattern as
-  `LocalOnboardingRepository`'s "seen" flags, so it's computed once per install, not every launch.
-  This is a coarse proxy, not a real GPU/RAM benchmark — `device_info_plus` would be the natural
-  upgrade if it ever needs to be more precise; nothing downstream would need to change since callers
-  only ever see the resolved `DeviceTier`.
+- **`DeviceTier`** (`lib/core/performance/`) buckets the device into `low`/`mid`/`high` using physical
+  RAM via `device_info_plus`, not CPU core count. The first version used
+  `Platform.numberOfProcessors` and was wrong: a Samsung A53 (8 cores, 2.0GHz with 2 cores at
+  2.4GHz) has *more* cores than an iPhone 12 (6 cores, 4 at 3.1GHz + 2 at 1.8GHz) but is meaningfully
+  slower in practice — the user caught this directly, with that exact device comparison, and asked
+  for a deeper dive into better signals (RAM/GPU were their own suggestions). Research (`pub.dev`
+  docs for `device_info_plus`'s `AndroidDeviceInfo`/`IosDeviceInfo` classes) confirmed RAM
+  (`physicalRamSize`, in MB) is available on both platforms with no extra plugin work, and Android
+  additionally exposes `isLowRamDevice` — a direct passthrough of the OS's own
+  `ActivityManager.isLowRamDevice()`, i.e. Android has already decided this device is
+  memory-constrained, treated as an outright override to `DeviceTier.low` regardless of the RAM
+  number. `classifyByRamMb` (`device_tier_service.dart`) applies **lower thresholds on iOS than
+  Android for the same tier** (low ≤2GB / mid ≤4GB on iOS vs. low ≤3GB / mid ≤6GB on Android) to
+  reflect that same iPhone-12-vs-A53 gap — Apple's tighter hardware/OS integration means a given RAM
+  figure performs like meaningfully more RAM does on Android, so a 4GB iPhone 12 lands in `mid`
+  rather than being penalized as `low` the way a 4GB budget Android would be. Still a coarse proxy,
+  not a real GPU benchmark — `dart:ui`'s `FrameTiming` (via `SchedulerBinding.addTimingsCallback`,
+  measuring actual per-frame build/raster duration at runtime) was researched as the natural v2
+  upgrade if this ever needs to catch things a static RAM figure can't (thermal throttling, etc.),
+  but deliberately deferred: it's only reliable in profile/release builds (debug overhead skews
+  readings) and trades a simple one-shot-at-launch signal for an ongoing-measurement one — not worth
+  the complexity unless a static signal proves insufficient in practice. `DeviceTierRepository`
+  caches the resolved tier in `shared_preferences` on first resolution, same pattern as
+  `LocalOnboardingRepository`'s "seen" flags, so it's computed once per install, not every launch;
+  nothing downstream would need to change since callers only ever see the resolved `DeviceTier`.
+- **Device-tier gating only applies in `kReleaseMode`, and that's a single toggle, not a hardcoded
+  check per call site.** The user wants every animation at full quality while developing regardless
+  of what tier their dev machine/simulator resolves to. `performance_gating_config.dart` defines
+  `gatedBuildModes` (a `Set<AppBuildMode>`, defaulting to `{release}`) — the one place to edit if
+  e.g. profile-mode preview of the low-tier fallback UI is ever wanted — and `effectiveDeviceTierProvider`
+  (`device_tier_providers.dart`) is what `ShimmerCard`/`FloatingNavBar` actually watch: outside a
+  gated mode it always reports `DeviceTier.high`, ignoring the real resolved tier entirely. This also
+  lines up with the `FrameTiming` research above — Flutter's own docs already say debug-mode timing
+  isn't representative of real performance, so treating debug as "always full quality, never gated"
+  isn't just a dev convenience, it's consistent with debug metrics being unreliable in general.
   - **Gotcha, caught by a test that actually distinguished it from a false positive**: the first
     version read `ref.watch(deviceTierProvider).valueOrNull ?? DeviceTier.high` and used that single
     build to decide whether to start `ShimmerCard`'s sweep-scheduling `Timer` chain, latching a

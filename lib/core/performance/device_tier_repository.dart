@@ -21,7 +21,7 @@ class DeviceTierRepository {
       return DeviceTier.values.asNameMap()[cached] ?? DeviceTier.mid;
     }
 
-    final tier = _service.resolveTier();
+    final tier = await _service.resolveTier();
     await prefs.setString(_prefsKey, tier.name);
     return tier;
   }

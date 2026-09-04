@@ -55,7 +55,7 @@ class _FloatingNavBarState extends ConsumerState<FloatingNavBar> {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     final visibility = NavVisibilityScope.of(context);
     final friendsBadgeCount = ref.watch(incomingRequestsCountProvider);
-    final tier = ref.watch(deviceTierProvider).valueOrNull ?? DeviceTier.high;
+    final tier = ref.watch(effectiveDeviceTierProvider).valueOrNull ?? DeviceTier.high;
     final isLowTier = tier == DeviceTier.low;
 
     final pill = Container(

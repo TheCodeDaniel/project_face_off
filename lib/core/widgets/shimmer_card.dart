@@ -87,14 +87,16 @@ class _ShimmerCardState extends ConsumerState<ShimmerCard> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
-    // Deliberately *not* `.valueOrNull ?? DeviceTier.high`: deviceTierProvider
-    // is a FutureProvider, so its first build is always AsyncLoading even
-    // when backed by an instantly-resolving cache — defaulting to "high"
-    // there and using that single build to decide (`_scheduled = true`)
-    // would lock in that optimistic guess permanently and mean the low
-    // -tier skip never actually takes effect. Only ever act on a value
-    // we've actually resolved.
-    final tierAsync = ref.watch(deviceTierProvider);
+    // Deliberately *not* `.valueOrNull ?? DeviceTier.high`: the underlying
+    // deviceTierProvider is a FutureProvider, so its first build is always
+    // AsyncLoading even when backed by an instantly-resolving cache —
+    // defaulting to "high" there and using that single build to decide
+    // (`_scheduled = true`) would lock in that optimistic guess permanently
+    // and mean the low-tier skip never actually takes effect. Only ever act
+    // on a value we've actually resolved. effectiveDeviceTierProvider (see
+    // performance_gating_config.dart) is what forces DeviceTier.high outside
+    // gated build modes (release, by default) — debug always sees the sweep.
+    final tierAsync = ref.watch(effectiveDeviceTierProvider);
     if (tierAsync.hasValue) _maybeStartScheduling(tierAsync.value!);
     return RepaintBoundary(
       child: Container(

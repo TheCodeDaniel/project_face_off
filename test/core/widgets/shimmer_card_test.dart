@@ -15,7 +15,7 @@ void main() {
   Future<void> pumpCard(WidgetTester tester, DeviceTier tier) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [deviceTierProvider.overrideWith((ref) async => tier)],
+        overrides: [effectiveDeviceTierProvider.overrideWith((ref) => AsyncValue.data(tier))],
         child: MaterialApp(
           theme: AppTheme.light,
           home: const Scaffold(body: ShimmerCard(child: Text('content'))),
