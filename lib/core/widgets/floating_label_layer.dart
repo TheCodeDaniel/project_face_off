@@ -98,21 +98,30 @@ class _FloatingLabelState extends State<_FloatingLabel> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final t = _controller.value;
-          final dy = -70 * Curves.easeOutCubic.transform(t);
-          // Fade baked directly into the text color's alpha rather than a
-          // bare Opacity widget — see CLAUDE.md's Opacity-audit lesson on
-          // AnimatedSplashScreen/DuelVsTransition for why, now applied here
-          // too since this sits alongside other independently-animating
-          // siblings (bow rig, background sway) in the same frame.
-          final opacity = t < 0.65 ? 1.0 : (1 - (t - 0.65) / 0.35).clamp(0.0, 1.0);
-          return Positioned(
-            left: widget.label.position.dx,
-            top: widget.label.position.dy + dy,
+    // Positioned must be the widget whose render-tree child ends up as
+    // Stack's direct child — wrapping it in RepaintBoundary/AnimatedBuilder
+    // instead of the other way around throws "Incorrect use of
+    // ParentDataWidget" at runtime, since the StackParentData Positioned
+    // sets would land on Text's render object while RepaintBoundary's render
+    // object is what Stack actually sees as its child. AnimatedBuilder has
+    // no render object of its own, so it's transparent here and safe to
+    // return Positioned directly from its builder; RepaintBoundary moves
+    // inside Positioned's child instead.
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        final dy = -70 * Curves.easeOutCubic.transform(t);
+        // Fade baked directly into the text color's alpha rather than a
+        // bare Opacity widget — see CLAUDE.md's Opacity-audit lesson on
+        // AnimatedSplashScreen/DuelVsTransition for why, now applied here
+        // too since this sits alongside other independently-animating
+        // siblings (bow rig, background sway) in the same frame.
+        final opacity = t < 0.65 ? 1.0 : (1 - (t - 0.65) / 0.35).clamp(0.0, 1.0);
+        return Positioned(
+          left: widget.label.position.dx,
+          top: widget.label.position.dy + dy,
+          child: RepaintBoundary(
             child: Text(
               widget.label.text,
               style: AppTextStyles.headline.copyWith(
@@ -120,9 +129,9 @@ class _FloatingLabelState extends State<_FloatingLabel> with SingleTickerProvide
                 fontWeight: FontWeight.w700,
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
