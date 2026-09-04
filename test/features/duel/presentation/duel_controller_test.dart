@@ -107,5 +107,79 @@ void main() {
         expect(controller.scores[DuelController.meId], 1);
       });
     });
+
+    group('connectivity handling (master prompt Section 12)', () {
+      test('going offline pauses the match — round timers stop advancing it', () {
+        fakeAsync((async) {
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          container.listen(duelControllerProvider, (_, _) {});
+          final controller = container.read(duelControllerProvider.notifier);
+
+          controller.startMatch('Bot');
+          expect(container.read(duelControllerProvider), isA<CueArmedRoundState>());
+
+          controller.handleConnectivityChange(false);
+          // Past the max 4s cue delay — if the cue timer were still running
+          // this would have fired by now. It shouldn't have: the round is
+          // paused, not just slower.
+          async.elapse(const Duration(seconds: 5));
+          expect(container.read(duelControllerProvider), isA<CueArmedRoundState>());
+        });
+      });
+
+      test('reconnecting before the forfeit timeout resumes with a fresh round', () {
+        fakeAsync((async) {
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          container.listen(duelControllerProvider, (_, _) {});
+          final controller = container.read(duelControllerProvider.notifier);
+
+          controller.startMatch('Bot');
+          controller.handleConnectivityChange(false);
+          async.elapse(const Duration(seconds: 10)); // well inside the 20s grace period
+
+          controller.handleConnectivityChange(true);
+          expect(container.read(duelControllerProvider), isA<CueArmedRoundState>());
+          // Resuming re-deals the round rather than forfeiting it.
+          expect(controller.scores[DuelController.meId], 0);
+          expect(controller.scores[DuelController.opponentId], 0);
+        });
+      });
+
+      test('staying offline past the grace period forfeits the match to the opponent', () {
+        fakeAsync((async) {
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          container.listen(duelControllerProvider, (_, _) {});
+          final controller = container.read(duelControllerProvider.notifier);
+
+          controller.startMatch('Bot');
+          controller.handleConnectivityChange(false);
+          async.elapse(const Duration(seconds: 21)); // past the 20s grace period
+
+          final result = container.read(duelControllerProvider) as MatchResultRoundState;
+          expect(result.winnerId, DuelController.opponentId);
+        });
+      });
+
+      test('going offline again after a forfeit is a no-op — the match already ended', () {
+        fakeAsync((async) {
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          container.listen(duelControllerProvider, (_, _) {});
+          final controller = container.read(duelControllerProvider.notifier);
+
+          controller.startMatch('Bot');
+          controller.handleConnectivityChange(false);
+          async.elapse(const Duration(seconds: 21));
+          final forfeited = container.read(duelControllerProvider) as MatchResultRoundState;
+
+          controller.handleConnectivityChange(true);
+          controller.handleConnectivityChange(false);
+          expect(container.read(duelControllerProvider), same(forfeited));
+        });
+      });
+    });
   });
 }

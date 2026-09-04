@@ -108,11 +108,20 @@ class _DuelVsTransitionState extends State<DuelVsTransition> {
                     child: _CombatantLabel(label: widget.rightLabel, color: palette.neonCyan),
                   ),
                 ),
-                Opacity(
-                  opacity: slideIn.value.clamp(0, 1),
-                  child: Transform.scale(
-                    scale: 0.4 + 0.6 * vsPop.value,
-                    child: Text('VS', style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 44)),
+                Transform.scale(
+                  scale: 0.4 + 0.6 * vsPop.value,
+                  child: Text(
+                    'VS',
+                    // Alpha baked into the color instead of an Opacity
+                    // wrapper — Opacity forces an offscreen saveLayer per
+                    // instance, and this widget already animates several
+                    // other things (shake, scale, the impact flash) in the
+                    // same frame; see AnimatedSplashScreen's doc comment
+                    // for the compositing issue that pattern caused there.
+                    style: AppTextStyles.display.copyWith(
+                      color: Colors.white.withValues(alpha: slideIn.value.clamp(0, 1)),
+                      fontSize: 44,
+                    ),
                   ),
                 ),
               ],

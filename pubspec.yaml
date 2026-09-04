@@ -49,6 +49,10 @@ dependencies:
   # Offline/connectivity (Section 12)
   connectivity_plus: ^6.1.0
 
+  # Device-capability tiering (Section 13) — RAM + Android's own
+  # isLowRamDevice signal, see device_tier_service.dart
+  device_info_plus: ^11.5.0
+
   # Design system: icon set + typography (Section 4)
   hugeicons: ^1.1.7
   google_fonts: ^8.2.1

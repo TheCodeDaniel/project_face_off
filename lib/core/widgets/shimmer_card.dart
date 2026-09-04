@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../performance/device_tier.dart';
+import '../performance/device_tier_providers.dart';
 import '../theme/lobby_palette.dart';
 
 /// Drop-in replacement for a plain `Container(decoration: BoxDecoration(color:
@@ -14,8 +17,16 @@ import '../theme/lobby_palette.dart';
 /// rather than a distraction.
 ///
 /// Wraps its own [RepaintBoundary] (engineering rule 6 — an independently
-/// animating subtree shouldn't repaint its parent).
-class ShimmerCard extends StatefulWidget {
+/// animating subtree shouldn't repaint its parent). On [DeviceTier.low]
+/// (Blueprint Section 6: "visual effects ... scale down automatically on
+/// lower tiers"), the sweep is skipped entirely rather than just made
+/// subtler — a real screen can have dozens of `ShimmerCard`s on it at once
+/// (every stat tile, cosmetic, settings row, ...), each independently
+/// scheduling its own `Timer`/`AnimationController`, which is exactly the
+/// kind of small-but-multiplied cost a weak device feels first. The card
+/// itself (color, border, shadow) is unaffected — only the decorative sweep
+/// is gated.
+class ShimmerCard extends ConsumerStatefulWidget {
   const ShimmerCard({
     super.key,
     required this.child,
@@ -36,19 +47,20 @@ class ShimmerCard extends StatefulWidget {
   final BoxBorder? border;
 
   @override
-  State<ShimmerCard> createState() => _ShimmerCardState();
+  ConsumerState<ShimmerCard> createState() => _ShimmerCardState();
 }
 
-class _ShimmerCardState extends State<ShimmerCard> with SingleTickerProviderStateMixin {
+class _ShimmerCardState extends ConsumerState<ShimmerCard> with SingleTickerProviderStateMixin {
   static const _sweepDuration = Duration(milliseconds: 1500);
   final _random = Random();
 
   late final AnimationController _controller = AnimationController(vsync: this, duration: _sweepDuration);
   Timer? _scheduleTimer;
+  bool _scheduled = false;
 
-  @override
-  void initState() {
-    super.initState();
+  void _maybeStartScheduling(DeviceTier tier) {
+    if (_scheduled || tier == DeviceTier.low) return;
+    _scheduled = true;
     _scheduleNextSweep(Duration(milliseconds: 300 + _random.nextInt(3500)));
   }
 
@@ -75,6 +87,17 @@ class _ShimmerCardState extends State<ShimmerCard> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
+    // Deliberately *not* `.valueOrNull ?? DeviceTier.high`: the underlying
+    // deviceTierProvider is a FutureProvider, so its first build is always
+    // AsyncLoading even when backed by an instantly-resolving cache —
+    // defaulting to "high" there and using that single build to decide
+    // (`_scheduled = true`) would lock in that optimistic guess permanently
+    // and mean the low-tier skip never actually takes effect. Only ever act
+    // on a value we've actually resolved. effectiveDeviceTierProvider (see
+    // performance_gating_config.dart) is what forces DeviceTier.high outside
+    // gated build modes (release, by default) — debug always sees the sweep.
+    final tierAsync = ref.watch(effectiveDeviceTierProvider);
+    if (tierAsync.hasValue) _maybeStartScheduling(tierAsync.value!);
     return RepaintBoundary(
       child: Container(
         margin: widget.margin,

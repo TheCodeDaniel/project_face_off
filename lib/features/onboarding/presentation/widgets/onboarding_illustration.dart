@@ -29,18 +29,20 @@ class _OnboardingIllustrationState extends State<OnboardingIllustration> with Si
   @override
   Widget build(BuildContext context) {
     final scale = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
-    return ScaleTransition(
-      scale: scale,
-      child: Container(
-        width: 180,
-        height: 180,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.4),
+    return RepaintBoundary(
+      child: ScaleTransition(
+        scale: scale,
+        child: Container(
+          width: 180,
+          height: 180,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.4),
+          ),
+          alignment: Alignment.center,
+          child: AppIcon(widget.icon, color: Colors.white, size: 84),
         ),
-        alignment: Alignment.center,
-        child: AppIcon(widget.icon, color: Colors.white, size: 84),
       ),
     );
   }

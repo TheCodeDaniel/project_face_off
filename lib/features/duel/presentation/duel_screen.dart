@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/connectivity/connectivity_providers.dart';
 import '../../../core/theme/match_palette.dart';
 import '../../../core/widgets/activity_toast.dart';
 import '../domain/round_state.dart';
 import 'duel_controller.dart';
+import 'duel_offline_pause_provider.dart';
 import 'duel_outcome_message.dart';
 import 'widgets/dev_gesture_controls.dart';
 import 'widgets/duel_match_header.dart';
 import 'widgets/duel_match_result_view.dart';
 import 'widgets/duel_phase_view.dart';
 import 'widgets/quit_match_dialog.dart';
+import 'widgets/reconnecting_banner.dart';
 
 /// The live duel screen (master prompt Section 8) — dark/neon match register
 /// (Blueprint Section 3), a deliberate contrast to the bright lobby. Owns
@@ -62,7 +66,22 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
       }
     });
 
+    // Master prompt Section 12: pauses the match locally, shows a
+    // reconnecting toast, and forfeits after a grace period if the
+    // connection doesn't return — see DuelController.handleConnectivityChange.
+    ref.listen(isOnlineProvider, (previous, next) {
+      final isOnline = next.valueOrNull ?? true;
+      final wasOffline = previous?.valueOrNull == false;
+      controller.handleConnectivityChange(isOnline);
+      if (!isOnline) {
+        ActivityToast.show(context, message: "You're offline — reconnecting…", icon: HugeIcons.strokeRoundedWifiOff01);
+      } else if (wasOffline) {
+        ActivityToast.show(context, message: 'Back online!', icon: HugeIcons.strokeRoundedWifiOff01);
+      }
+    });
+
     final state = ref.watch(duelControllerProvider);
+    final isOfflinePaused = ref.watch(duelOfflinePauseProvider);
     final scores = controller.scores;
 
     return PopScope(
@@ -85,6 +104,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                     onExit: () => _handlePopAttempt(state),
                   ),
                 ),
+                if (isOfflinePaused) const ReconnectingBanner(),
                 Expanded(
                   child: Center(
                     child: state is MatchResultRoundState

@@ -225,4 +225,30 @@ void main() {
       expect(e.roundNumber, 3);
     });
   });
+
+  group('forfeit (master prompt Section 12 — connectivity-loss grace period)', () {
+    test('credits the other player with the win regardless of the current score', () {
+      final e = engine();
+      reachCueFired(e);
+      final fireAt = t0.add(const Duration(seconds: 2));
+      e.onFireGesture(playerA, fireAt);
+      e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
+      expect(e.scores[playerA], 1);
+
+      e.forfeit(playerA);
+
+      final result = e.state as MatchResultRoundState;
+      expect(result.winnerId, playerB);
+    });
+
+    test('ends the match from mid-round, not just between rounds', () {
+      final e = engine();
+      reachCueFired(e);
+
+      e.forfeit(playerB);
+
+      expect(e.state, isA<MatchResultRoundState>());
+      expect((e.state as MatchResultRoundState).winnerId, playerA);
+    });
+  });
 }
