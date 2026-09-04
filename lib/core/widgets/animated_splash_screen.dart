@@ -1,7 +1,4 @@
-import 'dart:ui' show lerpDouble;
-
 import 'package:flutter/material.dart';
-
 import '../theme/app_text_styles.dart';
 import '../theme/match_palette.dart';
 
@@ -41,11 +38,12 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> with Single
   Widget build(BuildContext context) {
     final match = Theme.of(context).extension<MatchPalette>() ?? MatchPalette.standard;
 
-    // Scaffold (not bare Material/DecoratedBox) — AppRoot's outer
-    // AnimatedSwitcher lays its child out via a Stack whose non-positioned
-    // children get loose constraints, so anything else here would
-    // shrink-wrap to its content's width instead of filling the screen.
-    // Scaffold always claims constraints.biggest regardless.
+    // Scaffold (not bare Material/DecoratedBox) so Text has a proper
+    // Material ancestor — otherwise it falls back to WidgetsApp's debug
+    // default style (a loud yellow double-underline under every word). Full
+    // -screen sizing itself is AppRoot's job (its AnimatedSwitcher's
+    // layoutBuilder wraps every child in Positioned.fill) — see CLAUDE.md
+    // for why that fix belongs there and not here.
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: DecoratedBox(
@@ -56,67 +54,20 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> with Single
             builder: (context, _) {
               final t = _controller.value;
               return Stack(
-                alignment: Alignment.center,
+                fit: StackFit.expand,
+                // alignment: Alignment.center,
                 children: [
                   Positioned.fill(
                     child: _ShineSweep(t: t, color: match.neonCyan),
                   ),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _LogoMark(t: t, match: match),
-                      const SizedBox(height: 22),
-                      _Wordmark(t: t),
-                    ],
+                    children: [_Wordmark(t: t)],
                   ),
                 ],
               );
             },
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The app icon: fades and scales in with a bouncy overshoot, as if
-/// punching into frame, then holds.
-class _LogoMark extends StatelessWidget {
-  const _LogoMark({required this.t, required this.match});
-
-  final double t;
-  final MatchPalette match;
-
-  static const _end = 0.45;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = _clamp01(t / _end);
-    final scale = lerpDouble(0.3, 1.0, Curves.easeOutBack.transform(progress))!;
-    final alpha = _clamp01(t / 0.18);
-    if (alpha <= 0) return const SizedBox(width: 116, height: 116);
-
-    return Transform.scale(
-      scale: scale,
-      child: Container(
-        width: 116,
-        height: 116,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.1 * alpha),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.5 * alpha), width: 1.6),
-          boxShadow: [BoxShadow(color: match.neonViolet.withValues(alpha: 0.55 * alpha), blurRadius: 36)],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Opacity(
-          // The one place this screen accepts a real Opacity: fading in a
-          // rasterized PNG (unlike the other elements, its "color" isn't
-          // ours to bake alpha into) — a single saveLayer for one static
-          // image is a different risk profile than several stacked on
-          // shape/text layers, and image-only opacity is a well-trodden
-          // path (see engineering rule 6).
-          opacity: alpha,
-          child: Image.asset('assets/images/face-off-icon-1024.png', fit: BoxFit.cover),
         ),
       ),
     );
@@ -162,7 +113,7 @@ class _ShineSweep extends StatelessWidget {
   final Color color;
 
   static const _start = 0.5;
-  static const _end = 0.88;
+  static const _end = 2;
 
   @override
   Widget build(BuildContext context) {

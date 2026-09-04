@@ -94,7 +94,26 @@ class _AppRootState extends ConsumerState<AppRoot> {
       );
     }
 
-    return AnimatedSwitcher(duration: const Duration(milliseconds: 400), child: child);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      // Default layoutBuilder wraps children as plain (non-Positioned)
+      // Stack children, which get *loose* constraints — every screen swapped
+      // through here would size itself to its own content instead of
+      // filling the device (most visible on the splash: its content shrunk
+      // to a fraction of the screen width, black everywhere else). Wrapping
+      // each child in Positioned.fill gives it the Stack's actual size
+      // instead.
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            for (final previous in previousChildren) Positioned.fill(child: previous),
+            if (currentChild != null) Positioned.fill(child: currentChild),
+          ],
+        );
+      },
+      child: child,
+    );
   }
 }
 
