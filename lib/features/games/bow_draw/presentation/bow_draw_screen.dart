@@ -74,7 +74,19 @@ class _BowDrawScreenState extends ConsumerState<BowDrawScreen> {
     final matchState = ref.watch(matchControllerProvider);
     final isOfflinePaused = ref.watch(matchOfflinePauseProvider);
 
-    if (matchState is NoActiveMatchState) {
+    // NoActiveMatchState only exists for the single frame before initState's
+    // post-frame callback calls startMatch. It's not the only reason there's
+    // nothing safe to render yet, though: `matchControllerProvider` is
+    // autoDispose, and its teardown-and-recreate on a screen swap isn't
+    // perfectly synchronous with widget building — briefly, this screen can
+    // build against a *stale* MatchController still holding the *previous*
+    // game's module (a hard `as BowDrawGameModule` cast on that would throw
+    // a real, reproducible `_TypeError` — see FreezeScreen's doc comment,
+    // where this was actually caught live). Guard on the module's actual
+    // type, not just the coarse match state, and fall back to the same
+    // blank placeholder either way — it clears itself within a frame once
+    // startMatch actually applies.
+    if (matchState is NoActiveMatchState || controller.activeModule is! BowDrawGameModule) {
       return Scaffold(
         body: DecoratedBox(decoration: BoxDecoration(gradient: palette.backgroundGradient)),
       );

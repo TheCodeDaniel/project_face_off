@@ -98,9 +98,18 @@ class _FaceOffScreenState extends ConsumerState<FaceOffScreen> {
     final isOfflinePaused = ref.watch(matchOfflinePauseProvider);
 
     // NoActiveMatchState only exists for the single frame before initState's
-    // post-frame callback calls startMatch — activeModule isn't set up yet,
-    // so there's nothing meaningful to render besides the background.
-    if (matchState is NoActiveMatchState) {
+    // post-frame callback calls startMatch. It's not the only reason there's
+    // nothing safe to render yet, though: `matchControllerProvider` is
+    // autoDispose, and its teardown-and-recreate on a screen swap isn't
+    // perfectly synchronous with widget building — briefly, this screen can
+    // build against a *stale* MatchController still holding a *different*
+    // game's module (a hard `as FaceOffGameModule` cast on that would throw
+    // a real, reproducible `_TypeError`, caught live rebuilding straight
+    // from BowDrawScreen to FreezeScreen). Guard on the module's actual
+    // type, not just the coarse match state, and fall back to the same
+    // blank placeholder either way — it clears itself within a frame once
+    // startMatch actually applies.
+    if (matchState is NoActiveMatchState || controller.activeModule is! FaceOffGameModule) {
       return Scaffold(
         body: DecoratedBox(decoration: BoxDecoration(gradient: palette.backgroundGradient)),
       );
