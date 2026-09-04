@@ -10,6 +10,7 @@ import '../domain/leaderboard_scope.dart';
 import '../domain/player_profile.dart';
 import '../domain/profile_repository.dart';
 import '../domain/purchase_result.dart';
+import '../domain/region.dart';
 import '../domain/subscription_package.dart';
 import '../domain/subscription_tier.dart';
 
@@ -64,6 +65,7 @@ class FakeProfileRepository implements ProfileRepository {
     totalMatches: 12,
     friendsCount: 2,
     winRatePercent: 58,
+    region: Region.unitedStates,
     // Only Face Off has ever been playable (multi-game plan build order),
     // so it's the only game with a real match history so far — Bow & Draw
     // and Freeze simply have no entry, which the per-game stats sheet reads
@@ -90,6 +92,19 @@ class FakeProfileRepository implements ProfileRepository {
   /// `FriendsRepository` (see the class doc comment's `friendsCount` note).
   static const _friendNames = {'Kwesi', 'Naledi', 'Player'};
 
+  /// Which region each seeded name is in, for [LeaderboardScope.regional] —
+  /// same fake-data-only-overlap status as [_friendNames] above. 'Player'
+  /// (the local player) is `Region.unitedStates`, matching
+  /// [_seedProfile]'s own seeded `region`, so the two stay consistent.
+  static const _entryRegions = {
+    'Ama': Region.nigeria,
+    'Kwesi': Region.ghana,
+    'Tunde': Region.nigeria,
+    'Player': Region.unitedStates,
+    'Naledi': Region.southAfrica,
+    'Zara': Region.unitedStates,
+  };
+
   @override
   Stream<PlayerProfile> watchProfile() async* {
     yield _profile;
@@ -100,6 +115,8 @@ class FakeProfileRepository implements ProfileRepository {
     yield switch (scope) {
       LeaderboardScope.global => _leaderboard,
       LeaderboardScope.friends => _leaderboard.where((e) => _friendNames.contains(e.name)).toList(growable: false),
+      LeaderboardScope.regional =>
+        _leaderboard.where((e) => _entryRegions[e.name] == _profile.region).toList(growable: false),
     };
   }
 

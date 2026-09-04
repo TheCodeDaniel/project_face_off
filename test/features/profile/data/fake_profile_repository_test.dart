@@ -39,6 +39,20 @@ void main() {
       expect(friends.any((e) => e.name == 'Tunde'), isFalse);
     });
 
+    test('watchLeaderboard(regional) only includes players in the local player\'s own region', () async {
+      final repo = FakeProfileRepository(displayName: 'Ama');
+
+      final profile = await repo.watchProfile().first;
+      final global = await repo.watchLeaderboard(LeaderboardScope.global).first;
+      final regional = await repo.watchLeaderboard(LeaderboardScope.regional).first;
+
+      expect(regional, isNotEmpty);
+      expect(regional.length, lessThan(global.length));
+      // The local player ('Player') is always in their own regional board.
+      expect(regional.any((e) => e.name == 'Player'), isTrue);
+      expect(profile.region, isNotNull);
+    });
+
     test('equipCosmetic swaps which owned cosmetic is equipped', () async {
       final repo = FakeProfileRepository(displayName: 'Ama');
       final cosmeticsBefore = await repo.watchCosmetics().first;

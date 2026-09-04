@@ -17,11 +17,11 @@ import 'subscription_tier.dart';
 abstract class ProfileRepository {
   Stream<PlayerProfile> watchProfile();
 
-  /// [scope] narrows who's ranked (Global vs Friends — see
-  /// [LeaderboardScope]'s own doc comment for why there's no Regional
-  /// option). The real implementation resolves Friends server-side, joining
-  /// against the caller's actual friends list — never a client-side read of
-  /// `FriendsRepository` (engineering rule 1: features never reach into
+  /// [scope] narrows who's ranked — see [LeaderboardScope]'s own doc
+  /// comment. The real implementation resolves Regional/Friends
+  /// server-side (Regional by the player's stored `Region`, Friends by
+  /// joining against their actual friends list) — never a client-side read
+  /// of `FriendsRepository` (engineering rule 1: features never reach into
   /// each other's internals).
   Stream<List<LeaderboardEntry>> watchLeaderboard(LeaderboardScope scope);
 

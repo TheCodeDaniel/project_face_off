@@ -578,19 +578,28 @@ Real bugs found from screenshots after Section 10 shipped, all fixed in one pass
   feature keeps in sync, not off `FriendsRepository` directly.
 - Leaderboard ranking metric is **total round wins**, documented explicitly on `ProfileRepository`
   per the master prompt's own instruction not to leave the scoring metric implicit.
-- **Leaderboard scope filter** (`LeaderboardScope`, `lib/features/profile/domain/`): Global or
-  Friends, chosen via `LeaderboardScopeSelector` — a segmented pill with a sliding accent highlight
-  rather than a dropdown (only two options, so tap-to-switch reads faster than opening a menu), and
-  it deliberately reuses `FloatingNavBar`'s own "selected item grows an accent-colored pill" motif
-  (same 220ms `Curves.easeOutCubic`) instead of inventing a new interaction language for lobby
-  chrome. `watchLeaderboard()` takes the scope now (`leaderboardProvider` is a `.family` keyed on
-  it, with `leaderboardScopeProvider` holding the current selection). **No Regional scope** — there's
-  no per-user region/country field anywhere in the data model, and fabricating one just to back a
-  filter option wasn't worth it; see `LeaderboardScope`'s own doc comment. `FakeProfileRepository`'s
-  Friends filter is a hardcoded name-overlap with `FakeFriendsRepository`'s own seed (a fake-data-
-  only stand-in, same reasoning as `friendsCount` above) — the real implementation resolves Friends
-  server-side, joining against the caller's actual friends list, never a client-side read of
-  `FriendsRepository`.
+- **Leaderboard scope filter** (`LeaderboardScope`, `lib/features/profile/domain/`): Global,
+  Regional, or Friends, chosen via `LeaderboardScopeSelector` — a segmented pill with a sliding
+  accent highlight rather than a dropdown (a small fixed option set, so tap-to-switch reads faster
+  than opening a menu), and it deliberately reuses `FloatingNavBar`'s own "selected item grows an
+  accent-colored pill" motif (same 220ms `Curves.easeOutCubic`) instead of inventing a new
+  interaction language for lobby chrome. The sliding-highlight position is computed generically from
+  `LeaderboardScope.values.length`, so adding Regional after Global/Friends already shipped needed
+  no changes to the selector widget itself, just a new enum value and label. `watchLeaderboard()`
+  takes the scope (`leaderboardProvider` is a `.family` keyed on it, with `leaderboardScopeProvider`
+  holding the current selection).
+- **`Region`** (`lib/features/profile/domain/region.dart`) is a small curated country-granularity
+  enum, not free text — `PlayerProfile.region` is the local player's own region, seeded as a fixed
+  value (`Region.unitedStates`) for now. A real implementation would derive this from device locale
+  or IP geolocation at sign-up; this is a documented stand-in, same status as everything else
+  pending Firebase. `LeaderboardScreen` shows "Ranking players in {region}" under the selector when
+  Regional is active, reading `playerProfileProvider` for the label.
+- `FakeProfileRepository`'s Friends and Regional filters are both hardcoded overlaps with the global
+  seed (`_friendNames` mirrors `FakeFriendsRepository`'s own seed; `_entryRegions` assigns each
+  seeded name a `Region`, keeping 'Player' consistent with `_seedProfile`'s own `region`) — a
+  fake-data-only stand-in, same reasoning as `friendsCount` above. The real implementation resolves
+  both server-side (Friends by joining the caller's actual friends list, Regional by the player's
+  stored `Region`), never a client-side read of `FriendsRepository`.
 - `equipCosmetic` is a genuine no-op when given an unowned/unknown cosmetic id — worth calling out
   because the first version of this method had a real bug: it looped over *owned* cosmetics setting
   `equipped: c.id == cosmeticId`, which for an unowned target id meant **every** owned cosmetic

@@ -4,19 +4,26 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
 import '../../domain/leaderboard_scope.dart';
 
-/// Global vs Friends toggle for the Leaderboard screen. A segmented pill
-/// with a sliding accent highlight rather than a dropdown — only two
-/// options, so a tap-to-switch segmented control reads faster than opening
-/// a menu, and it matches `FloatingNavBar`'s own "selected item grows an
-/// accent-colored pill" motif (same 220ms `Curves.easeOutCubic` animation)
-/// rather than introducing a new interaction language for the lobby chrome.
+/// Global/Regional/Friends toggle for the Leaderboard screen. A segmented
+/// pill with a sliding accent highlight rather than a dropdown — a small
+/// fixed set of options, so a tap-to-switch segmented control reads faster
+/// than opening a menu, and it matches `FloatingNavBar`'s own "selected item
+/// grows an accent-colored pill" motif (same 220ms `Curves.easeOutCubic`
+/// animation) rather than introducing a new interaction language for the
+/// lobby chrome. The sliding-highlight position is computed generically from
+/// `LeaderboardScope.values.length`, so it isn't hardcoded to any particular
+/// segment count.
 class LeaderboardScopeSelector extends StatelessWidget {
   const LeaderboardScopeSelector({super.key, required this.scope, required this.onChanged});
 
   final LeaderboardScope scope;
   final ValueChanged<LeaderboardScope> onChanged;
 
-  static const _labels = {LeaderboardScope.global: 'Global', LeaderboardScope.friends: 'Friends'};
+  static const _labels = {
+    LeaderboardScope.global: 'Global',
+    LeaderboardScope.regional: 'Regional',
+    LeaderboardScope.friends: 'Friends',
+  };
 
   @override
   Widget build(BuildContext context) {
