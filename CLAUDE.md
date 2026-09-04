@@ -195,7 +195,8 @@ includes all three, so Quick Match genuinely picks at random from the full pool.
   simulating draw distance) within `DrawRules.hitTolerance` of a random per-round `targetPower`
   hits. A miss doesn't end the round by itself — the other player can still land a clean hit — only
   both players missing, or the window timing out with nobody landing a hit, draws the round.
-  `DevDrawControls` offers three preset pull-power buttons per player (no real Hand Landmarker yet).
+  `DevDrawControls` was originally three preset pull-power buttons per player; see "Game visual
+  layer & Hand Landmarker gesture engine" below for why it's now a continuous vertical-drag harness.
 - **Freeze** (`lib/features/games/freeze/`): structurally mirrors Face Off's crack-detection pattern
   almost exactly — "first player to move loses, simultaneous moves within a jitter window draw" is
   the same shape as "first player to crack loses, simultaneous cracks draw," right down to reusing
@@ -799,6 +800,15 @@ of the app builds and runs today, but not live-wired:
   on-device validation of blendshape output (`browInnerUp`, `jawOpen`, mouth-curvature) before
   committing to a package vs. hand-rolled channel, per the master prompt's own instruction not to
   assume.
+- **MediaPipe Hand Landmarker** — same status as Face Landmarker above, see "Game visual layer &
+  Hand Landmarker gesture engine" below: `HandGestureEngine`/`DrawGestureDetector` define the real
+  contract and detection logic, `FakeHandGestureEngine` backs it until on-device validation of
+  `hand_landmarker.task` confidence thresholds happens and the real platform channel gets built.
+- **Supabase** (Postgres) — needs a real project + `supabase db push` against
+  `supabase/migrations/20260101000000_initial_schema.sql`, and the Firebase-UID-via-JWT-claim RLS
+  pattern verified against Supabase's live docs. See "Backend architecture — hybrid split" below;
+  `MatchRepository`/`FakeMatchRepository` and the profile/friends repositories are written against
+  this pending backend the same way every other feature is written against Firebase.
 - **Lottie onboarding illustrations** — no design assets provided; see `OnboardingIllustration`
   above for the drop-in point once real `.json` files exist.
 
@@ -866,6 +876,123 @@ new," and anything that continues with the *same* opponent is a deliberate, cons
   `MatchmakingSearchingView`'s pulse) — fixed-duration `pump()`s only past that point, consistent
   with the existing product-tour lesson.
 
+## Backend architecture — hybrid split (`docs/face-off-game-ui-backend-guideline.md`)
+
+Corrects the original all-Firebase plan implied by the master prompt. Firebase Realtime DB stays
+for everything ephemeral/latency-sensitive/high-frequency — matchmaking queue, in-match event log,
+rematch-request nodes, presence/online-status — **unchanged**, do not move any of that to Postgres.
+Everything durable/relational moves to Postgres via Supabase instead:
+
+- **`users`** — profile data (display name, avatar, tier/level, region). `id` is the Firebase UID
+  (a `text` primary key, not a Postgres-generated `uuid`) — there is deliberately no second,
+  parallel Supabase Auth identity system; Auth stays exactly Firebase Auth (Google/Apple). Row-level
+  security keys off that same UID via a custom JWT claim (`auth.jwt() ->> 'firebase_uid'`) —
+  illustrative only in the initial migration, not verified against a live project; confirm the exact
+  current Supabase pattern for wiring a Firebase UID into RLS against their live docs before trusting
+  it, their auth-integration guidance changes.
+- **`user_game_stats`** (one row per user per game) plus a **`user_aggregate_stats`** view computing
+  the weighted-average win rate across games, rather than a duplicated, separately-maintained
+  aggregate row — the per-game rows stay the single source of truth.
+- **`friendships`/`friend_requests`/`blocks`/`reports`** — moved off the original Firestore plan
+  specifically because they're relational data with real query needs ("has this user blocked that
+  user," "list pending requests") a relational model handles more naturally than documents.
+  `friendships` uses a composite `(user_id_a, user_id_b)` primary key with `check (user_id_a <
+  user_id_b)` so a friendship is represented exactly once regardless of who added whom. Blocking
+  enforcement server-side is now a Postgres RLS policy check at matchmaking time (not a Cloud
+  Function, per the original plan) — still out of scope until Supabase exists, same as before.
+- **`matches`** — durable match history, written **once a match concludes**, via the new
+  `MatchRepository`/`FakeMatchRepository` (`lib/core/game_engine/`) — closes a gap every earlier
+  section of this file flagged as "the documented trigger point... not wired up yet." Live
+  round-by-round event data (fire/dodge/crack, draw/release, etc.) stays in Realtime DB and is never
+  migrated here; this table only ever holds the final summary (`MatchResultRecord`: game id,
+  opponent id/label, win/loss/draw, both scores, concluded-at timestamp). `MatchController` calls
+  `saveMatchResult` at both points it can reach `MatchCompleteMatchState` — the normal best-of-5 win
+  path in `_advanceAfterRecap`, and the offline-forfeit path in `handleConnectivityChange` — so a
+  forfeited match gets recorded too, not just a clean finish. `startMatch` now takes a real `matchId`
+  and `realOpponentId` (threaded in from each game screen's existing constructor params, from the
+  post-match flow work) alongside `MatchController`'s own internal `'me'`/`'opponent'` round-engine
+  slot labels, which still never leave the local engine. `MatchHistoryTeaser` (Play tab) now reads
+  `FakeMatchRepository.watchRecentMatches()` instead of a hardcoded empty state.
+- **`cosmetics_owned`/`subscriptions_cache`** — entitlement records, `subscriptions_cache.tier` kept
+  in sync via a RevenueCat webhook once that's wired up, never trusted purely from client-reported
+  purchase state.
+
+Initial schema lives at `supabase/migrations/20260101000000_initial_schema.sql` (apply with
+`supabase db push` once a project exists). Every repository doc comment across `matchmaking`
+(stays Realtime DB), `profile`/`friends` (now Postgres), and `rematch` (stays Realtime DB) was
+updated to reflect this split — check a feature's own `domain/*_repository.dart` doc comment for
+which backend it targets before writing new data-layer code against it.
+
+## Game visual layer & Hand Landmarker gesture engine (`docs/face-off-game-ui-backend-guideline.md`)
+
+Shape/tracking correctness first, art polish last and explicitly optional for v1 — the guideline's
+own priority order. Real native Hand Landmarker (camera-based ML, needs platform-channel work and a
+physical device) is out of reach in this environment, same boundary as Face Landmarker/Firebase/
+RevenueCat throughout this project — built behind the same clean-interface-plus-fake pattern instead.
+
+- **`lib/core/gesture_engine/`** gained a Hand Landmarker mirror of the existing Face Landmarker
+  pattern: `HandLandmarkFrame` (raw pinch-point position + hand-openness, plus a `handDetected` flag
+  so occlusion debounces via a consecutive-frame streak instead of a wall-clock timer inside the
+  isolate — the same "reduce to what the game actually needs" simplification `BlendshapeFrame`
+  already applies), `HandGestureEngine` (the platform-channel contract, not implemented — needs
+  on-device validation of `hand_landmarker.task`/`numHands: 1`/`LIVE_STREAM` confidence thresholds
+  first, per the master prompt's own instruction not to assume), a sealed `DrawGestureEvent`
+  hierarchy (`DrawUpdate(power)`/`DrawReleased(power)`/`DrawCancelled`), named `DrawGestureThresholds`,
+  an isolate-based `DrawGestureDetector` (establishes an at-rest anchor from a streak of low-movement
+  frames, tracks distance-from-anchor as power, and detects a real release as a rapid distance drop
+  **combined with** a hand-openness spread increase — distance dropping alone could just be the hand
+  relaxing), and `FakeHandGestureEngine` for tests/dev. Not yet wired into `BowDrawGameModule`'s
+  round-outcome resolution — same documented gap as `SemanticGestureDetector` never being wired into
+  `FaceOffGameModule` (`DevGestureControls`/`DevDrawControls` bypass it entirely until a real camera
+  exists).
+- **`BowDrawGameModule.updateDrawPower(playerId, power)`** is new, distinct from `triggerShoot` — a
+  continuous live-power update the bow rig's draw-back animation reads directly, kept outside
+  `BowDrawRoundEngine`'s own state since it's a presentation value, not something that affects
+  round-outcome logic (only a shot's final released power via `triggerShoot` does). `DevDrawControls`
+  became a vertical-drag harness (was three preset buttons) specifically so even the no-camera dev
+  path exercises this continuous signal — the guideline calls the pull-gesture feedback loop "the
+  single most important visual feedback loop" in Bow & Draw, so the dev harness should demonstrate it
+  continuously too, not just simulate three discrete outcomes.
+- **`LayeredDepthScene`** (`core/widgets/`) is the shared HD-2D-style depth layering primitive —
+  flat sprites (gradients/shapes, no raster assets) at different static scales with one shared, slow,
+  continuous parallax sway, explicitly **not** real 3D/dynamic lighting/particle effects per the
+  guideline's guardrail. `BowDrawRangeBackdrop` (sky/stars, hill silhouettes, ground) and
+  `FreezeStageBackdrop` (frost-sparkle sky, ice-pillar silhouettes) both use it rather than each game
+  growing its own depth-layering plumbing — Freeze's stage deliberately differs only in shape/color,
+  reinforcing a colder "hold still" register against Bow & Draw's outdoor range.
+- **`BowRig`** (`bow_draw/presentation/widgets/`) is a first-person bow-and-arrow rig, bottom-of-
+  screen, whose string pull-back is driven **directly** by live draw power with no
+  `AnimationController` smoothing in between — the guideline's "single most important visual feedback
+  loop," so there's no lag between a real draw gesture and what renders.
+- **`BowDrawTarget`** pulses and swaps to its accent color only once the shot window is actually
+  open — the exact power a shot must land near is still never shown as a number, same "don't reveal
+  the precise target" instinct as Face Off's hidden cue.
+- **`FloatingLabelLayer`** (`core/widgets/`) is the shared world-space floating-text primitive —
+  spawns at a point, drifts upward while fading (alpha baked into the text color, never a bare
+  `Opacity` widget, consistent with the `Opacity`-audit lesson from the performance pass — this sits
+  alongside other independently-animating siblings in the same frame). Similar energy to
+  `ActivityToast` but transient and positioned at the triggering event rather than a fixed screen
+  edge. Bow & Draw spawns `HIT!`/`MISS`/`DRAW`; Freeze spawns `BUSTED!`/`SAFE!` — both driven off the
+  same `ref.listen(matchControllerProvider, ...)` callback that already shows the recap
+  `ActivityToast`, using each screen's own `LayoutBuilder`-tracked visual-area size to approximate
+  the target/stage's on-screen position (good enough for a floating callout; not worth a `GlobalKey`
+  round-trip just to spawn a label near it).
+- **`PlayerHudCapsule`** (`core/widgets/`) replaces `MatchHeader`'s old plain face-avatar row — a
+  simple capsule HUD (portrait ring + wins-progress bar) reusing `CoinBadge`'s pill-shaped capsule
+  language, per the guideline's explicit ask, mirrorable via a `reversed` flag so the local player's
+  capsule sits top-left with its portrait facing inward toward the header's center, and the
+  opponent's sits top-right as a mirror image, portrait also facing inward. Since `MatchHeader` is
+  already the one shared
+  match-chrome component all three games use (see "Dynamic game routing" above), this single change
+  updated Face Off, Bow & Draw, and Freeze's HUDs at once — the guideline's own instruction that
+  consistency across the three games' HUDs matters more than any one of them looking distinct.
+- Both `BowDrawPhaseView`/`FreezePhaseView` widget tests use fixed-duration `pump()`s, never
+  `pumpAndSettle()` — `LayeredDepthScene`'s sway and `BowDrawTarget`'s pulse are both continuous,
+  indefinitely-repeating animations, same documented gotcha as the product tour and `ShimmerCard`.
+- Verified live on the iOS Simulator via the established throwaway-debug-entry-point pattern
+  (`lib/_debug_..._preview.dart`, deleted after) for both the Bow & Draw visual layer and the new
+  capsule HUD.
+
 ## Build order (from master prompt, keep committing per section)
 
 Scaffold → design system → app shell → **auth/onboarding (done, against a fake auth repo)** →
@@ -880,12 +1007,16 @@ the real gesture engine and a physical device, both out of scope until the games
 **multi-game expansion (done — Face Off/Bow & Draw/Freeze, see "Multi-game architecture" above)** →
 **post-match flow (done — see "Post-match flow" above)**.
 
-Every master-prompt section is now built, and the scope has grown per
-`docs/face-off-multigame-plan.md`: **the entire multi-game expansion (Sections 1-8 of that plan) is
+Every master-prompt section is now built, and the scope has grown twice more: per
+`docs/face-off-multigame-plan.md`, **the entire multi-game expansion (Sections 1-8 of that plan) is
 done** — `GameModule`/`MatchController`, all three games (Face Off, Bow & Draw, Freeze) playable
 end-to-end via their own dev-harness controls, dynamic per-game screen routing, the Friends
 game-picker challenge flow, Profile per-game stats, the onboarding copy line, and cosmetics
-game-tagging. What's left: the real camera + MediaPipe gesture engine (replacing every game's own
-`Dev*Controls` harness — needed by all three now, not just one), and wiring a real backend
-(Firebase, per your decision) in place of every feature's fake repository, including the
-`matches/{matchId}.gameId` field once that exists.
+game-tagging; and per `docs/face-off-game-ui-backend-guideline.md`, **the Postgres/Supabase data
+layer, the Hand Landmarker gesture-engine interface, and all three games' visual layers (layered
+depth backdrops, the bow rig, floating labels, the shared capsule HUD) are done** — see "Backend
+architecture — hybrid split" and "Game visual layer & Hand Landmarker gesture engine" above. What's
+left: the real camera + MediaPipe gesture engines (Face **and** Hand Landmarker, replacing every
+game's own `Dev*Controls` harness), and wiring a real backend in place of every feature's fake
+repository — Firebase for auth/matchmaking/signaling/rematch/presence, Supabase for
+profile/friends/match-history/entitlements, per the hybrid split above.
