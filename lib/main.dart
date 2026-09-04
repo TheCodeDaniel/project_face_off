@@ -103,12 +103,28 @@ class _AppRootState extends ConsumerState<AppRoot> {
       // to a fraction of the screen width, black everywhere else). Wrapping
       // each child in Positioned.fill gives it the Stack's actual size
       // instead.
+      //
+      // Each Positioned.fill MUST carry the wrapped child's own key. Without
+      // one, Stack's children list is reconciled *positionally*: mid-fade
+      // the list is [previous, current] (2 items), and once the fade
+      // finishes and `previous` drops out it becomes just [current] (1
+      // item) — at index 0 that's a widget swap (was `previous`, now
+      // `current`) with no key to prove they're unrelated, so Flutter
+      // updates the old element in place, finds the *inner* child's key
+      // doesn't match, and tears the whole subtree down and rebuilds it
+      // fresh instead of reusing the element already mounted at index 1.
+      // For AppShellScreen that meant initState() (and everything it
+      // kicks off, like the product tour) ran a second time within a
+      // frame or two of the first — the real cause of the tour visibly
+      // starting and then immediately vanishing on every single launch,
+      // confirmed by instrumenting AppShellScreen and seeing its tour
+      // -trigger method run twice on one launch.
       layoutBuilder: (currentChild, previousChildren) {
         return Stack(
           alignment: Alignment.center,
           children: [
-            for (final previous in previousChildren) Positioned.fill(child: previous),
-            if (currentChild != null) Positioned.fill(child: currentChild),
+            for (final previous in previousChildren) Positioned.fill(key: previous.key, child: previous),
+            if (currentChild != null) Positioned.fill(key: currentChild.key, child: currentChild),
           ],
         );
       },

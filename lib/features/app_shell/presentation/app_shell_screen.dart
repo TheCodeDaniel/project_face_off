@@ -17,16 +17,25 @@ import 'nav_visibility_controller.dart';
 /// Migrated off the (now-deprecated) context-dependent `ShowCaseWidget` onto
 /// `ShowcaseView.register`/`.get()`: registering once in `initState` and
 /// starting the tour once via a single `initState`-scoped
-/// `addPostFrameCallback`, instead of the old pattern's
-/// `WidgetsBinding.instance.addPostFrameCallback` re-registered on *every*
-/// `ShowCaseWidget.builder` rebuild (each tab switch, each Friends-badge
-/// count change, ...) guarded only by a `_tourTriggerAttempted` flag. That
-/// old pattern was the likely cause of a real bug: the tour would flash on
-/// screen for a frame and then silently fail — `showcaseview` 3.0.0 had
-/// several fixed-in-5.x issues around exactly this shape (races in the
-/// async start sequence, null-check crashes on rebuild-during-showcase,
-/// missing-target handling). Registering once up front sidesteps that whole
-/// class of bug rather than working around it.
+/// `addPostFrameCallback`, instead of the old pattern re-registering its
+/// trigger on *every* `ShowCaseWidget.builder` rebuild.
+///
+/// **On the "tour flashes for a frame then vanishes" bug**: this class was
+/// not the actual cause, despite being the obvious suspect. Instrumenting
+/// `_maybeStartTour` (temporarily) proved `initState` was running *twice*
+/// on a single launch — i.e. `AppShellScreen`'s whole `State` was being
+/// torn down and recreated a beat after the tour had already started,
+/// which orphaned the first `ShowcaseView` registration and silently
+/// dropped its overlay. The real bug was one level up, in `AppRoot`'s
+/// `AnimatedSwitcher.layoutBuilder` (`lib/main.dart`) — its
+/// `Positioned.fill` wrappers had no `key`, so once the splash→shell
+/// crossfade finished and the Stack's children list shrank back to one
+/// item, positional reconciliation mismatched the slot and rebuilt this
+/// widget from scratch instead of reusing the already-mounted element.
+/// See the comment on that `layoutBuilder` for the full explanation.
+/// `_maybeStartTour` below still polls `ShowcaseView.isTargetRendered`
+/// before calling `startShowCase`, which is a real (if secondary) fix for
+/// a genuine race against the Play tab's nested `Navigator`.
 class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({super.key, required this.tabs});
 
@@ -55,6 +64,21 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   Future<void> _maybeStartTour() async {
     final hasSeenTour = await ref.read(onboardingRepositoryProvider).hasSeenTour();
     if (hasSeenTour || !mounted) return;
+
+    // The first frame after AppShellScreen mounts is not always enough —
+    // its first target (Quick Match) lives inside the Play tab's own
+    // nested Navigator, whose route content can register its Showcase
+    // controller with ShowcaseService a beat later than AppShellScreen's
+    // own build. Poll isTargetRendered (the 5.x replacement for the old
+    // key.currentContext check) instead of guessing a fixed delay.
+    var attempts = 0;
+    while (!_showcaseView.isTargetRendered(TourKeys.quickMatch) && attempts < 20) {
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      attempts++;
+    }
+    if (!mounted) return;
+
     _showcaseView.startShowCase(TourKeys.all);
     await ref.read(onboardingRepositoryProvider).markTourSeen();
   }

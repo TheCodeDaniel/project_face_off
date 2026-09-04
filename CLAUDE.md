@@ -183,19 +183,48 @@ tile/card/pill surfaces.
   the Quick Match button plus the Friends and Profile nav items themselves (as the discoverable
   entry points into those sections). `TourKeys` (`lib/core/onboarding_tour/`) holds the shared
   `GlobalKey`s so `app_shell` and `play` don't reach into each other's internals to wire it up.
-- **`showcaseview` upgraded 3.0.0 → 5.1.0** after a real bug report: on first sign-in the tour would
-  flash on screen for a frame and then silently fail. Root cause was the trigger pattern, not the
-  target widgets — `AppShellScreen` used to wrap the shell in `ShowCaseWidget` and call
-  `WidgetsBinding.instance.addPostFrameCallback` to start the tour *inside that widget's own
-  `builder`*, which re-runs on every `AppShellScreen` rebuild (every tab switch, every Friends-badge
-  count change from `incomingRequestsCountProvider`, ...); a `_tourTriggerAttempted` flag guarded
-  against re-starting, but the async gap in `await hasSeenTour()` before that flag's effect was
-  fully settled was exactly the kind of race 5.x's changelog lists multiple fixes for (null-check
-  crash in `didUpdateWidget`, "missing target" handling, async-sequence-transition guards). Migrated
-  off the now-deprecated context-dependent `ShowCaseWidget` onto `ShowcaseView.register()`/`.get()`:
-  `AppShellScreen` registers once in `initState` and starts the tour once via a single
-  `initState`-scoped `addPostFrameCallback`, unregistering in `dispose` — no context threading, no
-  re-triggering on rebuild, so the whole bug class doesn't apply rather than being patched around.
+- **`showcaseview` upgraded 3.0.0 → 5.1.0** and migrated off the now-deprecated context-dependent
+  `ShowCaseWidget` onto `ShowcaseView.register()`/`.get()`: `AppShellScreen` registers once in
+  `initState` and starts the tour once via a single `initState`-scoped `addPostFrameCallback`,
+  unregistering in `dispose` — no context threading, no re-triggering on tab-switch/rebuild the way
+  the old `ShowCaseWidget.builder`-scoped trigger did. Worthwhile on its own, but **this was not
+  what fixed the actual bug** — see below.
+- **The real "tour flashes on screen for a frame then vanishes on every single launch" bug** lived
+  in `AppRoot`'s `AnimatedSwitcher.layoutBuilder` (`lib/main.dart`), not in the tour code at all.
+  That `layoutBuilder` exists to fix a *different*, earlier bug (screens shrinking to a fraction of
+  the device width — see the splash section above) by wrapping each child in `Positioned.fill`. The
+  first version of that fix didn't give those `Positioned.fill` wrappers a `key`. Mid-crossfade,
+  `AnimatedSwitcher`'s Stack has two children (`[previous, current]`); once the ~400ms fade
+  finishes and `previous` drops out, the list shrinks to `[current]` alone — at index 0 that's a
+  *different* widget than what was there a frame earlier, and with no key on the `Positioned`
+  wrapper to prove they're unrelated, Flutter's positional reconciliation tries to update the old
+  element in place, finds the inner child's key doesn't match, and tears the whole subtree down and
+  rebuilds it from scratch instead of reusing the element already mounted at the other index. For
+  `AppShellScreen` that meant `initState()` — and everything it kicks off, including
+  `ShowcaseView.register()` and the tour trigger — ran a **second time**, a beat after the first
+  run had already started the tour successfully. The second `ShowcaseView.register()` silently
+  replaced the first registration for that scope, orphaning the overlay the first instance had just
+  shown. Confirmed by temporarily instrumenting `AppShellScreen` with `debugPrint`s and watching its
+  tour-trigger method fire twice on a single fresh-install launch, and by stepping through a
+  fresh-install run screenshot-by-screenshot to catch the exact frame it happened on (right at the
+  crossfade's end, matching the theory exactly). **Fix**: give each `Positioned.fill` the wrapped
+  child's own `key` (`previous.key` / `currentChild.key`) so Stack reconciles by identity instead of
+  position — see the comment on that `layoutBuilder` for the full writeup.
+  - **This is why `_maybeStartTour` still polls `ShowcaseView.isTargetRendered`** before calling
+    `startShowCase`, even after the real fix above: that's a real, separate, minor race (the Play
+    tab's nested `Navigator` can register its `Showcase` controller a beat after `AppShellScreen`'s
+    own build), just not the one causing the dramatic flash-then-vanish symptom.
+  - **Lesson for next time a screen's whole `State` seems to silently reset**: don't assume the bug
+    is in the screen itself — check what's re-parenting it first. An unkeyed widget swapped into a
+    list-based layout (`Stack`, `Column`, `Row`, `AnimatedSwitcher`'s own default `layoutBuilder`,
+    any custom one) that changes length across rebuilds is a classic way to lose element identity
+    silently, with no error, no warning, just a rebuilt subtree.
+  - **`test/app_root_test.dart`'s existing test is the regression coverage** — it now asserts
+    `find.text('Quick Match')` returns *exactly* 2 matches (the button's own label plus the tour
+    tooltip's title) rather than the previous `findsWidgets`, which would have silently passed even
+    with only the button's label left (i.e. even with the tour already dead) and so never actually
+    proved the tour was still showing. Confirmed this catches the regression by reverting the `key:`
+    fix locally and re-running the test — it failed with exactly 1 match, as expected.
 - **Tour redesigned to look intentional, not like a bolted-on library default** — `tourShowcase()`
   and `tourActions()` (`lib/core/onboarding_tour/tour_style.dart`) give every `Showcase` a shared,
   on-brand look: frosted deep-violet tooltip (`LobbyPalette.gradientStart`), white

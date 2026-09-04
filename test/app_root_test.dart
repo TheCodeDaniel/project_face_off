@@ -21,16 +21,28 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Continue with Google'));
-    // Not pumpAndSettle: the post-sign-in product tour (ShowCaseWidget) runs
-    // a continuous highlight animation once triggered, which never settles.
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pump(const Duration(milliseconds: 700));
+    // Not pumpAndSettle: the post-sign-in product tour runs a continuous
+    // highlight animation once triggered, which never settles. Pump well
+    // past both AppRoot's ~400ms splash->shell crossfade *and* the tour's
+    // up-to-1s isTargetRendered poll (see AppShellScreen), so this
+    // genuinely exercises the window where a real regression showed up:
+    // AnimatedSwitcher's layoutBuilder reconciling the Stack's children by
+    // position once the crossfade's "previous" entry drops out, which used
+    // to silently tear down and recreate AppShellScreen's whole State —
+    // orphaning the ShowcaseView registration the tour had already started
+    // on mid-fade, and killing the tour a frame or two after it appeared.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 400));
+    }
 
     expect(find.text('Face Off'), findsOneWidget);
-    // findsWidgets, not findsOneWidget: the post-sign-in product tour's
-    // first Showcase step titles itself "Quick Match" too, so this text now
-    // legitimately appears twice — once on the button, once in the tour
-    // tooltip highlighting it.
-    expect(find.text('Quick Match'), findsWidgets);
+    // Exactly 2, not findsWidgets: the button's own label plus the tour's
+    // first Showcase step (title "Quick Match" too). findsWidgets would
+    // pass even with just the button's label alone — i.e. even if the tour
+    // had already vanished — so it doesn't actually prove the tour is
+    // still showing. Asserting the exact count does.
+    expect(find.text('Quick Match'), findsNWidgets(2));
+    expect(find.text('Skip'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
   });
 }
