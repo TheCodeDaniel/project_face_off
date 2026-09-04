@@ -37,18 +37,24 @@ class _MatchmakingSearchingViewState extends State<MatchmakingSearchingView> wit
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ScaleTransition(
-            scale: pulse,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.18),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.4),
+          // The pulse repeats indefinitely for as long as this screen is
+          // up (engineering rule 6) — RepaintBoundary keeps that continuous
+          // animation from forcing the static title/subtitle/Cancel button
+          // below to repaint every frame too.
+          RepaintBoundary(
+            child: ScaleTransition(
+              scale: pulse,
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.18),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.4),
+                ),
+                alignment: Alignment.center,
+                child: const AppIcon(HugeIcons.strokeRoundedSearch01, color: Colors.white, size: 56),
               ),
-              alignment: Alignment.center,
-              child: const AppIcon(HugeIcons.strokeRoundedSearch01, color: Colors.white, size: 56),
             ),
           ),
           const SizedBox(height: 32),

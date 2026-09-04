@@ -6,6 +6,8 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/onboarding_tour/tour_keys.dart';
 import '../../../core/onboarding_tour/tour_style.dart';
+import '../../../core/performance/device_tier.dart';
+import '../../../core/performance/device_tier_providers.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/lobby_palette.dart';
 import '../../../core/widgets/app_icon.dart';
@@ -20,6 +22,12 @@ import 'nav_visibility_controller.dart';
 /// small threshold, reappears on scroll-up or after ~600ms idle, never hides
 /// while a modal is open on top of it. Also carries the Friends tab's
 /// incoming-request badge count (master prompt Section 9).
+///
+/// The frosted-glass look is the app's single most expensive always-on
+/// visual: `BackdropFilter` re-samples everything behind it every frame this
+/// bar is on screen, which is effectively the whole app. On [DeviceTier.low]
+/// (Blueprint Section 6) it's skipped in favor of a plain, more opaque pill
+/// — same shape/border/shadow, no blur sampling cost.
 class FloatingNavBar extends ConsumerStatefulWidget {
   const FloatingNavBar({super.key, required this.currentIndex, required this.onTabSelected});
 
@@ -47,6 +55,34 @@ class _FloatingNavBarState extends ConsumerState<FloatingNavBar> {
     final palette = Theme.of(context).extension<LobbyPalette>() ?? LobbyPalette.standard;
     final visibility = NavVisibilityScope.of(context);
     final friendsBadgeCount = ref.watch(incomingRequestsCountProvider);
+    final tier = ref.watch(deviceTierProvider).valueOrNull ?? DeviceTier.high;
+    final isLowTier = tier == DeviceTier.low;
+
+    final pill = Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: isLowTier ? 0.92 : 0.22),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < _items.length; i++)
+            _NavItem(
+              icon: _items[i].icon,
+              label: _items[i].label,
+              selected: widget.currentIndex == i,
+              accent: palette.gradientMid,
+              onTap: () => widget.onTabSelected(i),
+              showcaseKey: _tourKeys[i],
+              showcaseTitle: _items[i].label,
+              badgeCount: i == 1 ? friendsBadgeCount : 0,
+            ),
+        ],
+      ),
+    );
 
     return SafeArea(
       child: AnimatedBuilder(
@@ -66,36 +102,7 @@ class _FloatingNavBarState extends ConsumerState<FloatingNavBar> {
           padding: const EdgeInsets.only(bottom: 16),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(999),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 20, offset: const Offset(0, 8)),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < _items.length; i++)
-                      _NavItem(
-                        icon: _items[i].icon,
-                        label: _items[i].label,
-                        selected: widget.currentIndex == i,
-                        accent: palette.gradientMid,
-                        onTap: () => widget.onTabSelected(i),
-                        showcaseKey: _tourKeys[i],
-                        showcaseTitle: _items[i].label,
-                        badgeCount: i == 1 ? friendsBadgeCount : 0,
-                      ),
-                  ],
-                ),
-              ),
-            ),
+            child: isLowTier ? pill : BackdropFilter(filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24), child: pill),
           ),
         ),
       ),

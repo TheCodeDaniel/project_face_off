@@ -464,6 +464,99 @@ The full RevenueCat package-picker → purchase UI flow is built and real, runni
   fired and been lost by the time a late `.first` subscribes. See
   `test/features/profile/data/fake_profile_repository_test.dart`.
 
+## Offline & connectivity handling (Section 12)
+
+- `ConnectivityService` (`lib/core/connectivity/`) is a single shared online/offline signal — every
+  consumer watches `isOnlineProvider` rather than standing up its own `connectivity_plus` listener.
+  `LiveConnectivityService` doesn't just trust the connection *type* `connectivity_plus` reports
+  (Wi-Fi/cellular "connected" doesn't mean the internet actually works — captive portals, a router
+  with no upstream link); Blueprint Section 5 calls this out explicitly ("loss of connection **or
+  failed server reachability check**"), so it also resolves a stable public DNS name as a real
+  reachability probe. There's no backend yet to health-check against (Firebase isn't wired up), so
+  this is a documented stand-in — swap the target for a real Firebase health-check endpoint once one
+  exists; nothing downstream of `ConnectivityService` needs to change.
+- `ConnectivityGate` (mounted once around `AppShellScreen`'s body) owns showing/auto-dismissing
+  `OfflineBottomSheet` — a slide-up sheet (not a blocking dialog), Wi-Fi-off icon-on-glass
+  illustration (no Lottie asset exists yet, same documented drop-in-point pattern as
+  `OnboardingIllustration`), and a "Retry" button that force-refreshes the connectivity probe rather
+  than waiting for the next `connectivity_plus` change event.
+- **In-match handling** (Blueprint Section 5: "the match pauses locally ... a reasonable timeout
+  (20s) before the match is forfeited gracefully") lives in `DuelController.handleConnectivityChange`,
+  called from `DuelScreen`'s `ref.listen(isOnlineProvider, ...)`. Going offline cancels every
+  in-flight round `Timer` and starts a 20s forfeit countdown (`RoundRules.offlineForfeitTimeout`);
+  reconnecting before that fires cancels the countdown and re-deals the *current* round from a fresh
+  Neutral phase — simpler than trying to reconstruct exactly where a paused cue/dodge/timeout window
+  left off, and no less fair given neither player could act during the pause anyway. Staying offline
+  past the timeout calls the new `DuelRoundEngine.forfeit(playerId)`, which ends the match immediately
+  (from *any* phase, not just between rounds) crediting the other player with the win.
+  `duelOfflinePauseProvider` (a small standalone `StateProvider`, not folded into `RoundState`) is
+  what `DuelScreen` watches to show `ReconnectingBanner` — pausing doesn't change the round state
+  itself, so there was no reason for `DuelRoundEngine`'s domain logic to know about connectivity at
+  all.
+- **Two pre-existing, unused stub files were removed while building this**:
+  `lib/core/connectivity/connectivity_provider.dart` (singular) and the old
+  `lib/core/connectivity/offline_bottom_sheet.dart` — leftover scaffolding from this branch's very
+  first commit, never imported anywhere, and their `isOnlineProvider` name collided with the real
+  one built here. Confirmed via `git log`/`grep` that nothing referenced them before deleting.
+
+## Performance pass (Section 13)
+
+- **What could actually be done here without a real device or the real gesture engine**: profiling
+  on a real mid-range Android device and confirming the gesture pipeline holds ~30fps both require
+  hardware and a gesture engine that don't exist in this environment yet (MediaPipe integration is
+  explicitly deferred to the games section — see CLAUDE.md's stubs list). What *was* done: the
+  device-capability tiering system Blueprint Section 6 asks for, a `RepaintBoundary` audit, an
+  `Opacity`-usage audit, and a `dart fix --apply` pass (nothing to fix — const discipline had already
+  held throughout the build).
+- **`DeviceTier`** (`lib/core/performance/`) buckets the device into `low`/`mid`/`high` using logical
+  CPU core count (`Platform.numberOfProcessors`) — a genuinely "lightweight" signal (Blueprint
+  Section 6's own wording) available with no new plugin dependency. `DeviceTierRepository` caches the
+  resolved tier in `shared_preferences` on first resolution, same pattern as
+  `LocalOnboardingRepository`'s "seen" flags, so it's computed once per install, not every launch.
+  This is a coarse proxy, not a real GPU/RAM benchmark — `device_info_plus` would be the natural
+  upgrade if it ever needs to be more precise; nothing downstream would need to change since callers
+  only ever see the resolved `DeviceTier`.
+  - **Gotcha, caught by a test that actually distinguished it from a false positive**: the first
+    version read `ref.watch(deviceTierProvider).valueOrNull ?? DeviceTier.high` and used that single
+    build to decide whether to start `ShimmerCard`'s sweep-scheduling `Timer` chain, latching a
+    `_scheduled` flag so it would never re-decide. Since `deviceTierProvider` is a `FutureProvider`,
+    its *first* build is always `AsyncLoading` even when backed by an instantly-resolving cache —
+    meaning the optimistic "high" default was what got locked in, permanently, every single time,
+    and the low-tier skip never actually took effect. An initial test asserting "no pending timer
+    after disposal" passed even with this bug present (`dispose()` cancels the timer regardless of
+    whether scheduling should have been skipped, so that assertion couldn't tell gated-correctly
+    apart from never-gated-at-all) — the real regression test steps `pump()` forward well past the
+    sweep's own max initial delay and asserts `tester.hasRunningAnimations` stays false throughout on
+    `DeviceTier.low`. Fixed by only acting on `tierAsync.hasValue`, never a placeholder default, for
+    this one-shot decision. General lesson: a "no crash / no leftover timer" test proves cleanup
+    works, not that gating logic actually ran — assert on the *effect* the gating is supposed to
+    prevent, not just the absence of an error.
+- **`ShimmerCard`'s decorative sweep is skipped entirely (not just made subtler) on `DeviceTier.low`**
+  — a real screen can have dozens of `ShimmerCard`s on it simultaneously (every stat tile, cosmetic,
+  settings row, friend list tile, FAQ tile, ...), each independently scheduling its own
+  `Timer`/`AnimationController`; that's exactly the kind of small-but-multiplied cost a weak device
+  feels first. The card itself (color/border/shadow) is unaffected, only the sweep.
+- **`FloatingNavBar`'s `BackdropFilter` blur is skipped on `DeviceTier.low`** in favor of a plainer,
+  more opaque pill (same shape/border/shadow) — this is the app's single most expensive *always-on*
+  visual, since it re-samples everything behind it every frame the nav bar is on screen, which is
+  effectively the whole app. Re-evaluated every build (no one-time-lock-in flag like `ShimmerCard`
+  had), so there's no equivalent risk of the fallback default sticking permanently.
+- **`RepaintBoundary` audit** (engineering rule 6 — wrap independently-animating subtrees so their
+  repaints don't force static siblings to repaint too): found and fixed one real miss —
+  `MatchmakingSearchingView`'s pulse (`_controller..repeat(reverse: true)`, a *continuous*,
+  indefinitely-looping animation) had no boundary despite sitting in the same `Column` as static
+  title/subtitle text and a Cancel button. Also added one to `OnboardingIllustration`'s one-shot
+  entrance scale (lower stakes since it only animates for ~900ms, but still a real independently
+  -animating subtree per the rule). Did *not* add one to `DuelVsTransition` — despite being the most
+  visually dramatic animation in the app, it fills its entire dedicated screen with nothing static
+  alongside it, so a `RepaintBoundary` there would have no sibling to actually protect; adding one
+  anyway would just be decorative, not a real fix.
+- **`Opacity` audit**: `DuelVsTransition`'s "VS" text used a bare `Opacity` widget layered alongside
+  several other things already animating in the same frame (shake, scale, the impact flash) — the
+  same shape of compositing risk documented at length on `AnimatedSplashScreen` (a stacked-`Opacity`
+  bug there reproducibly corrupted the render on iOS Simulator). Baked the fade into the text color's
+  alpha instead, consistent with how every other fade in this codebase now works.
+
 ## What's stubbed pending your credentials
 
 These need accounts/config only you can provide — implemented behind clean interfaces so the rest
@@ -491,5 +584,11 @@ Scaffold → design system → app shell → **auth/onboarding (done, against a 
 **duel engine (done — playable end-to-end via the dev gesture-controls harness, pending real
 camera + networking)** → **Friends (done, against a fake friends repo)** →
 **Profile (done, against a fake profile repo)** → **monetization (done — full RevenueCat
-package-picker/purchase UI flow built against the fake repo, pending real API keys)** → offline
-handling → performance pass.
+package-picker/purchase UI flow built against the fake repo, pending real API keys)** →
+**offline handling (done)** → **performance pass (done — device-capability tiering, a
+RepaintBoundary/Opacity audit; on-device profiling and gesture-pipeline fps validation are pending
+the real gesture engine and a physical device, both out of scope until the games section)**.
+
+Every master-prompt section is now built. What's left: the games section (real camera + MediaPipe
+gesture engine, replacing `DevGestureControls`) and wiring a real backend (Firebase, per your
+decision) in place of every feature's fake repository.
