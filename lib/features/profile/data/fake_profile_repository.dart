@@ -6,6 +6,7 @@ import '../../../core/game_engine/game_pool.dart';
 import '../../../core/widgets/podium_leaderboard.dart' show LeaderboardEntry;
 import '../domain/cosmetic.dart';
 import '../domain/game_stats.dart';
+import '../domain/leaderboard_scope.dart';
 import '../domain/player_profile.dart';
 import '../domain/profile_repository.dart';
 import '../domain/purchase_result.dart';
@@ -79,14 +80,27 @@ class FakeProfileRepository implements ProfileRepository {
     LeaderboardEntry(name: 'Zara', score: 60),
   ];
 
+  /// Which of the global seed's names are the local player's friends, for
+  /// [LeaderboardScope.friends] — matches `FakeFriendsRepository`'s own seed
+  /// (Kwesi, Naledi are friends there; Tunde is only a pending *incoming*
+  /// request, not yet a friend, so deliberately excluded here too) plus the
+  /// local player themself, so a friends-scoped board still shows where you
+  /// personally rank. A real implementation resolves this server-side —
+  /// this hardcoded overlap is a fake-data-only stand-in, not a read of
+  /// `FriendsRepository` (see the class doc comment's `friendsCount` note).
+  static const _friendNames = {'Kwesi', 'Naledi', 'Player'};
+
   @override
   Stream<PlayerProfile> watchProfile() async* {
     yield _profile;
   }
 
   @override
-  Stream<List<LeaderboardEntry>> watchLeaderboard() async* {
-    yield _leaderboard;
+  Stream<List<LeaderboardEntry>> watchLeaderboard(LeaderboardScope scope) async* {
+    yield switch (scope) {
+      LeaderboardScope.global => _leaderboard,
+      LeaderboardScope.friends => _leaderboard.where((e) => _friendNames.contains(e.name)).toList(growable: false),
+    };
   }
 
   @override

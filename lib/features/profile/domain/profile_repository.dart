@@ -1,5 +1,6 @@
 import '../../../core/widgets/podium_leaderboard.dart' show LeaderboardEntry;
 import 'cosmetic.dart';
+import 'leaderboard_scope.dart';
 import 'player_profile.dart';
 import 'purchase_result.dart';
 import 'subscription_package.dart';
@@ -16,7 +17,13 @@ import 'subscription_tier.dart';
 abstract class ProfileRepository {
   Stream<PlayerProfile> watchProfile();
 
-  Stream<List<LeaderboardEntry>> watchLeaderboard();
+  /// [scope] narrows who's ranked (Global vs Friends — see
+  /// [LeaderboardScope]'s own doc comment for why there's no Regional
+  /// option). The real implementation resolves Friends server-side, joining
+  /// against the caller's actual friends list — never a client-side read of
+  /// `FriendsRepository` (engineering rule 1: features never reach into
+  /// each other's internals).
+  Stream<List<LeaderboardEntry>> watchLeaderboard(LeaderboardScope scope);
 
   Stream<List<Cosmetic>> watchCosmetics();
 
