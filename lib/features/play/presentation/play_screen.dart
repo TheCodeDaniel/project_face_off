@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
+
+import '../../../core/onboarding_tour/tour_keys.dart';
+import '../../../core/onboarding_tour/tour_style.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/widgets/coin_badge.dart';
+import '../../../core/widgets/gradient_scaffold.dart';
+import '../../../core/widgets/primary_pill_button.dart';
+import '../../app_shell/presentation/nav_visibility_controller.dart';
+import 'matchmaking_screen.dart';
+import 'online_count_provider.dart';
+import 'widgets/how_to_play_sheet.dart';
+import 'widgets/match_history_teaser.dart';
+
+/// Play tab home state (master prompt Section 7): live "players online now"
+/// indicator, Quick Match CTA, How to Play, recent match history teaser.
+class PlayScreen extends ConsumerWidget {
+  const PlayScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onlineCount = ref.watch(onlineCountProvider).valueOrNull ?? 0;
+
+    return GradientScaffold(
+      body: SafeArea(
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollUpdateNotification) {
+              NavVisibilityScope.of(context).onScrollDelta(notification.scrollDelta ?? 0);
+            }
+            return false;
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Face Off', style: AppTextStyles.display.copyWith(color: Colors.white)),
+                  const CoinBadge(coins: 0),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _OnlineIndicator(count: onlineCount),
+              const SizedBox(height: 32),
+              tourShowcase(
+                key: TourKeys.quickMatch,
+                title: 'Quick Match',
+                description: 'Jump into a random duel the moment you\'re ready.',
+                targetShapeBorder: const StadiumBorder(),
+                child: PrimaryPillButton(
+                  label: 'Quick Match',
+                  icon: HugeIcons.strokeRoundedZap,
+                  // rootNavigator: true — see the note on MatchmakingScreen:
+                  // pushed on the Play tab's own nested Navigator, this (and
+                  // everything it hands off to) would render underneath
+                  // FloatingNavBar instead of covering it.
+                  onPressed: () => Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).push(MaterialPageRoute(builder: (_) => const MatchmakingScreen())),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SecondaryPillButton(
+                label: 'How to Play',
+                icon: HugeIcons.strokeRoundedHelpCircle,
+                onPressed: () => HowToPlaySheet.show(context),
+              ),
+              const SizedBox(height: 32),
+              Text('Recent matches', style: AppTextStyles.label.copyWith(color: Colors.white70)),
+              const SizedBox(height: 10),
+              const MatchHistoryTeaser(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineIndicator extends StatelessWidget {
+  const _OnlineIndicator({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(color: Color(0xFF4CD9E8), shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text('$count players online now', style: AppTextStyles.label.copyWith(color: Colors.white70)),
+      ],
+    );
+  }
+}

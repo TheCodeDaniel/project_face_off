@@ -1,4 +1,4 @@
-package com.example.project_face_off
+package com.faceoffgame.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
