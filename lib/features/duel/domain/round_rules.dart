@@ -22,6 +22,12 @@ abstract final class RoundRules {
   /// Overall round timeout guarding against a stuck/disconnected client.
   static const Duration roundTimeout = Duration(seconds: 8);
 
+  /// Grace period after this device loses connectivity mid-match before the
+  /// match is forfeited (master prompt Section 12 / Blueprint Section 5:
+  /// "a reasonable timeout (e.g., 20s) before the match is forfeited
+  /// gracefully").
+  static const Duration offlineForfeitTimeout = Duration(seconds: 20);
+
   /// Spec default: a clean dodge resets to an active exchange rather than
   /// instantly winning the round for the dodger. Flip during playtesting to
   /// try the alternate rule (see master prompt 8.4).

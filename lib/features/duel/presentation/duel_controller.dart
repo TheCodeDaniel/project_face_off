@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/duel_round_engine.dart';
 import '../domain/round_rules.dart';
 import '../domain/round_state.dart';
+import 'duel_offline_pause_provider.dart';
 
 /// `autoDispose` so leaving [DuelScreen] (whether the match finished or the
 /// player quit early via [QuitMatchDialog]) actually tears the controller
@@ -41,6 +42,8 @@ class DuelController extends AutoDisposeNotifier<RoundState> {
   Timer? _crackTimeoutTimer;
   Timer? _roundTimeoutTimer;
   Timer? _recapTimer;
+  Timer? _forfeitTimer;
+  bool _offlinePaused = false;
 
   @override
   RoundState build() {
@@ -127,11 +130,44 @@ class DuelController extends AutoDisposeNotifier<RoundState> {
     });
   }
 
+  /// Master prompt Section 12 / Blueprint Section 5: "if offline during an
+  /// active match, the match pauses locally ... with a reasonable timeout
+  /// before the match is forfeited gracefully." `DuelScreen` calls this
+  /// from a `ref.listen(isOnlineProvider, ...)` — going offline cancels
+  /// every in-flight round timer and starts the forfeit countdown; coming
+  /// back online cancels that countdown. Resuming re-deals the current
+  /// round from a fresh Neutral phase rather than trying to reconstruct
+  /// exactly where a paused cue/dodge/timeout window left off — simpler,
+  /// and no less fair than the alternative given neither player could act
+  /// during the pause anyway.
+  void handleConnectivityChange(bool isOnline) {
+    if (state is MatchResultRoundState) return;
+
+    if (!isOnline && !_offlinePaused) {
+      _offlinePaused = true;
+      ref.read(duelOfflinePauseProvider.notifier).state = true;
+      _cancelTimers();
+      _forfeitTimer = Timer(RoundRules.offlineForfeitTimeout, () {
+        _engine.forfeit(meId);
+        state = _engine.state;
+        _offlinePaused = false;
+        ref.read(duelOfflinePauseProvider.notifier).state = false;
+      });
+    } else if (isOnline && _offlinePaused) {
+      _offlinePaused = false;
+      ref.read(duelOfflinePauseProvider.notifier).state = false;
+      _forfeitTimer?.cancel();
+      _forfeitTimer = null;
+      _beginRound();
+    }
+  }
+
   void _cancelTimers() {
     _cueTimer?.cancel();
     _dodgeTimeoutTimer?.cancel();
     _crackTimeoutTimer?.cancel();
     _roundTimeoutTimer?.cancel();
     _recapTimer?.cancel();
+    _forfeitTimer?.cancel();
   }
 }

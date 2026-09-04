@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showcaseview/showcaseview.dart';
 
+import '../../../core/connectivity/connectivity_gate.dart';
 import '../../../core/onboarding_tour/tour_keys.dart';
 import '../../../core/onboarding_tour/tour_style.dart';
 import '../../onboarding/presentation/onboarding_providers.dart';
@@ -105,24 +106,26 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return NavVisibilityScope(
-      controller: _navVisibility,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            for (var i = 0; i < widget.tabs.length; i++)
-              Offstage(
-                offstage: _index != i,
-                child: Navigator(
-                  key: _navigatorKeys[i],
-                  onGenerateRoute: (settings) => MaterialPageRoute(builder: widget.tabs[i]),
+    return ConnectivityGate(
+      child: NavVisibilityScope(
+        controller: _navVisibility,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              for (var i = 0; i < widget.tabs.length; i++)
+                Offstage(
+                  offstage: _index != i,
+                  child: Navigator(
+                    key: _navigatorKeys[i],
+                    onGenerateRoute: (settings) => MaterialPageRoute(builder: widget.tabs[i]),
+                  ),
                 ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: FloatingNavBar(currentIndex: _index, onTabSelected: _onTabSelected),
               ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FloatingNavBar(currentIndex: _index, onTabSelected: _onTabSelected),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

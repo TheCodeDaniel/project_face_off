@@ -159,6 +159,15 @@ class DuelRoundEngine {
     _state = RoundResultRoundState(outcome: outcome, scores: Map.unmodifiable(scores));
   }
 
+  /// A player forfeits the match outright — e.g. a connectivity-loss grace
+  /// period expiring (master prompt Section 12) — ending it immediately
+  /// regardless of the current score or round phase, crediting the other
+  /// player with the win.
+  void forfeit(String forfeitingPlayerId) {
+    _pendingCrack = null;
+    _state = MatchResultRoundState(winnerId: _other(forfeitingPlayerId), scores: Map.unmodifiable(scores));
+  }
+
   /// Advance out of [RoundResultRoundState] after the recap: to the next
   /// round's neutral phase, or to [MatchResultRoundState] if a player has
   /// reached [RoundRules.roundsToWinMatch].
