@@ -1,4 +1,6 @@
+import '../../features/games/bow_draw/domain/bow_draw_game_module.dart';
 import '../../features/games/face_off/domain/face_off_game_module.dart';
+import '../../features/games/freeze/domain/freeze_game_module.dart';
 import 'game_module.dart';
 import 'game_pool.dart';
 
@@ -11,11 +13,7 @@ import 'game_pool.dart';
 GameModule createGameModule(GameId id, {required String playerAId, required String playerBId}) {
   return switch (id) {
     GameId.faceOff => FaceOffGameModule(playerAId: playerAId, playerBId: playerBId),
-    // Build order (multi-game plan Section 8): Bow & Draw and Freeze ship
-    // after this refactor lands. gamePool already carries their catalog
-    // entries; pickRandomGameId only draws from implementedGameIds, so
-    // Quick Match can never route here for an unbuilt game.
-    GameId.bowDraw => throw UnimplementedError('Bow & Draw is not built yet — see CLAUDE.md build order.'),
-    GameId.freeze => throw UnimplementedError('Freeze is not built yet — see CLAUDE.md build order.'),
+    GameId.bowDraw => BowDrawGameModule(playerAId: playerAId, playerBId: playerBId),
+    GameId.freeze => FreezeGameModule(playerAId: playerAId, playerBId: playerBId),
   };
 }

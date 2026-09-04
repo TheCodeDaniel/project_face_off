@@ -61,7 +61,7 @@ void main() {
 
   testWidgets('the header exit button triggers the same quit confirmation as the system back gesture', (tester) async {
     // iOS has no system back button and the edge-swipe gesture isn't an
-    // obvious affordance mid-match, so DuelMatchHeader carries an explicit
+    // obvious affordance mid-match, so MatchHeader carries an explicit
     // exit control — this confirms it actually routes through the same
     // confirm-before-leaving flow rather than popping silently.
     await pumpFaceOffScreen(tester);

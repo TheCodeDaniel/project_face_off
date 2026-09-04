@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../../core/theme/app_text_styles.dart';
-import '../../../../../core/theme/match_palette.dart';
-import '../../../../../core/widgets/app_icon.dart';
-import '../../../../../core/widgets/primary_pill_button.dart';
+import '../theme/app_text_styles.dart';
+import '../theme/match_palette.dart';
+import 'app_icon.dart';
+import 'primary_pill_button.dart';
 
-/// Confirmation shown when the player tries to leave `FaceOffScreen`
+/// Confirmation shown when the player tries to leave each game's own screen
 /// mid-round (system back gesture/button, or any other pop) — leaving
 /// mid-match forfeits it, so this guards against losing a live duel to an
 /// accidental swipe-back. Not shown once the match has already ended; see
-/// `FaceOffScreen`'s `PopScope`.
+/// each game's own screen's `PopScope`.
 class QuitMatchDialog extends StatelessWidget {
   const QuitMatchDialog({super.key});
 

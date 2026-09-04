@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/gradient_scaffold.dart';
+import '../../../core/widgets/match_found_screen.dart';
 import '../domain/matchmaking_state.dart';
-import 'match_found_screen.dart';
 import 'matchmaking_controller.dart';
 import 'widgets/matchmaking_searching_view.dart';
 import 'widgets/matchmaking_timeout_view.dart';

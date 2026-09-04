@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../../core/game_engine/game_pool.dart';
 import '../../../core/widgets/podium_leaderboard.dart' show LeaderboardEntry;
 import '../domain/cosmetic.dart';
+import '../domain/game_stats.dart';
 import '../domain/player_profile.dart';
 import '../domain/profile_repository.dart';
 import '../domain/purchase_result.dart';
@@ -23,6 +25,16 @@ class FakeProfileRepository implements ProfileRepository {
       const Cosmetic(id: 'c2', name: 'Neon Glow', icon: HugeIcons.strokeRoundedSparkles, owned: true, equipped: false),
       const Cosmetic(id: 'c3', name: 'Champion', icon: HugeIcons.strokeRoundedCrown, owned: false, equipped: false),
       const Cosmetic(id: 'c4', name: 'Ghost', icon: HugeIcons.strokeRoundedUserCircle02, owned: false, equipped: false),
+      // Game-specific, not universal (multi-game plan Section 5) — only
+      // shows up as meaningful gear once Bow & Draw is actually playable.
+      const Cosmetic(
+        id: 'c5',
+        name: 'Gold Arrows',
+        icon: HugeIcons.strokeRoundedTarget03,
+        owned: false,
+        equipped: false,
+        applicableGameId: GameId.bowDraw,
+      ),
     ]);
   }
 
@@ -51,6 +63,11 @@ class FakeProfileRepository implements ProfileRepository {
     totalMatches: 12,
     friendsCount: 2,
     winRatePercent: 58,
+    // Only Face Off has ever been playable (multi-game plan build order),
+    // so it's the only game with a real match history so far — Bow & Draw
+    // and Freeze simply have no entry, which the per-game stats sheet reads
+    // as "no matches yet" rather than needing an explicit zero record.
+    perGameStats: const {GameId.faceOff: GameStats(totalMatches: 12, winRatePercent: 58, winStreak: 3)},
   );
 
   static const _leaderboard = [

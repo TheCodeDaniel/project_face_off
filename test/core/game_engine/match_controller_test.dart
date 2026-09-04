@@ -4,9 +4,82 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:project_face_off/core/game_engine/game_pool.dart';
 import 'package:project_face_off/core/game_engine/match_controller.dart';
 import 'package:project_face_off/core/game_engine/match_state.dart';
+import 'package:project_face_off/features/games/bow_draw/domain/bow_draw_game_module.dart';
 import 'package:project_face_off/features/games/face_off/domain/face_off_game_module.dart';
+import 'package:project_face_off/features/games/freeze/domain/freeze_game_module.dart';
+import 'package:project_face_off/features/games/freeze/domain/freeze_state.dart';
 
 void main() {
+  test('MatchController correctly re-arms Bow & Draw across multiple rounds, not just the first', () {
+    fakeAsync((async) {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.listen(matchControllerProvider, (_, _) {});
+      final controller = container.read(matchControllerProvider.notifier);
+
+      controller.startMatch(GameId.bowDraw, 'Bot');
+
+      for (var i = 0; i < 2; i++) {
+        final module = controller.activeModule as BowDrawGameModule;
+        // Target power is randomized 0.3-0.9 with a ±0.15 hit tolerance —
+        // three shots spaced 0.3 apart cover the whole range (worst case,
+        // exactly between two shots, lands exactly at the tolerance
+        // boundary). Once a shot lands the round resolves immediately and
+        // the module ignores the remaining calls (state is no longer armed).
+        module.triggerShoot(MatchController.meId, 0.3);
+        module.triggerShoot(MatchController.meId, 0.6);
+        module.triggerShoot(MatchController.meId, 0.9);
+        async.elapse(const Duration(seconds: 3)); // recap -> next round
+      }
+
+      // Two rounds resolved (each as a win for meId, since only meId ever
+      // shoots) without yet reaching the 3-win match threshold — without
+      // BowDrawRoundEngine.reset() being called between rounds, the second
+      // round's armRound() would silently no-op and this round counter
+      // would still read 2, stuck showing PlayingRoundMatchState with a
+      // round that was never actually armed.
+      expect(controller.roundNumber, 3);
+      expect(controller.scores[MatchController.meId], 2);
+      expect(container.read(matchControllerProvider), isA<PlayingRoundMatchState>());
+    });
+  });
+
+  test(
+    'MatchController is truly game-agnostic — best-of-5 scoring works identically with a different game plugged in',
+    () {
+      fakeAsync((async) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        container.listen(matchControllerProvider, (_, _) {});
+        final controller = container.read(matchControllerProvider.notifier);
+
+        controller.startMatch(GameId.freeze, 'Bot');
+        expect(controller.activeModule, isA<FreezeGameModule>());
+
+        for (var i = 0; i < 3; i++) {
+          final module = controller.activeModule as FreezeGameModule;
+          // The build-up delay is randomized 1.5-4.5s and the freeze window
+          // is only 3s long — a single fixed elapse long enough to always
+          // clear the build-up (e.g. 5s) can therefore overshoot straight
+          // through the window's own shorter timeout for a small build-up
+          // draw, timing the round out as a draw before triggerMove ever
+          // runs. Stepping in small increments and stopping the instant
+          // Frozen is reached avoids that regardless of the random draw.
+          while (module.freezeState is! FrozenState) {
+            async.elapse(const Duration(milliseconds: 100));
+          }
+          module.triggerMove(MatchController.opponentId); // opponent moves, I win the round
+          async.elapse(const Duration(milliseconds: 200)); // past the simultaneous-move jitter window
+          async.elapse(const Duration(seconds: 3)); // recap -> next round, or match complete on the 3rd
+        }
+
+        final result = container.read(matchControllerProvider) as MatchCompleteMatchState;
+        expect(result.winnerId, MatchController.meId);
+        expect(result.scores[MatchController.meId], 3);
+      });
+    },
+  );
+
   group('MatchController (game-agnostic, driven here by the real Face Off module)', () {
     test('startMatch hands control to the picked game and starts a round', () {
       fakeAsync((async) {

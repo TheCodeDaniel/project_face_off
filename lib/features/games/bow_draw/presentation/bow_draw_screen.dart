@@ -13,45 +13,25 @@ import '../../../../core/widgets/game_match_result_view.dart';
 import '../../../../core/widgets/match_header.dart';
 import '../../../../core/widgets/quit_match_dialog.dart';
 import '../../../../core/widgets/reconnecting_banner.dart';
-import '../domain/face_off_game_module.dart';
-import 'face_off_outcome_message.dart';
-import 'widgets/dev_gesture_controls.dart';
-import 'widgets/face_off_phase_view.dart';
+import '../domain/bow_draw_game_module.dart';
+import 'bow_draw_outcome_message.dart';
+import 'widgets/bow_draw_phase_view.dart';
+import 'widgets/dev_draw_controls.dart';
 
-/// The live Face Off match screen (master prompt Section 8) — dark/neon
-/// match register (Blueprint Section 3), a deliberate contrast to the bright
-/// lobby. Drives the game-agnostic [matchControllerProvider] for match-level
-/// chrome (score header, recap toast, result screen, quit/connectivity
-/// handling — multi-game plan Section 3.2) and separately listens to the
-/// active [FaceOffGameModule]'s own `roundState` via [ListenableBuilder] for
-/// this game's round-phase detail (cue/fire/dodge).
-///
-/// [gameId] is passed in rather than picked here — whoever hands off to this
-/// screen (`MatchFoundScreen` for Quick Match, a friend-challenge flow for a
-/// private match) already resolved which game the match is for (multi-game
-/// plan Section 3.5); this screen just plays it. Rematch reuses the same
-/// [gameId] rather than re-rolling a random one — "rematch" reads as "play
-/// this game again," not "surprise me with a different one."
-///
-/// Wrapped in a [PopScope] that intercepts any attempt to leave — system
-/// back gesture/button, or an in-app pop — while a round is still live and
-/// confirms via [QuitMatchDialog] first, since leaving mid-match forfeits
-/// it. Once the match has actually ended ([MatchCompleteMatchState]), leaving
-/// is free. [MatchHeader] also carries an explicit exit button wired to the
-/// same [_handlePopAttempt] flow — iOS has no system back button and the
-/// edge-swipe gesture isn't an obvious affordance mid-match, so `PopScope`
-/// alone left no discoverable way out.
-class FaceOffScreen extends ConsumerStatefulWidget {
-  const FaceOffScreen({super.key, required this.opponentName, this.gameId = GameId.faceOff});
+/// The live Bow & Draw match screen — same shape as `FaceOffScreen` (see its
+/// doc comment for the shared match-chrome/`GameModule` split rationale),
+/// just delegating round-phase detail to [BowDrawPhaseView] instead.
+class BowDrawScreen extends ConsumerStatefulWidget {
+  const BowDrawScreen({super.key, required this.opponentName, this.gameId = GameId.bowDraw});
 
   final String opponentName;
   final GameId gameId;
 
   @override
-  ConsumerState<FaceOffScreen> createState() => _FaceOffScreenState();
+  ConsumerState<BowDrawScreen> createState() => _BowDrawScreenState();
 }
 
-class _FaceOffScreenState extends ConsumerState<FaceOffScreen> {
+class _BowDrawScreenState extends ConsumerState<BowDrawScreen> {
   @override
   void initState() {
     super.initState();
@@ -76,13 +56,10 @@ class _FaceOffScreenState extends ConsumerState<FaceOffScreen> {
 
     ref.listen(matchControllerProvider, (previous, next) {
       if (next is RoundRecapMatchState && previous is! RoundRecapMatchState) {
-        ActivityToast.show(context, message: faceOffOutcomeMessage(next.outcome, widget.opponentName));
+        ActivityToast.show(context, message: bowDrawOutcomeMessage(next.outcome, widget.opponentName));
       }
     });
 
-    // Master prompt Section 12: pauses the match locally, shows a
-    // reconnecting toast, and forfeits after a grace period if the
-    // connection doesn't return — see MatchController.handleConnectivityChange.
     ref.listen(isOnlineProvider, (previous, next) {
       final isOnline = next.valueOrNull ?? true;
       final wasOffline = previous?.valueOrNull == false;
@@ -97,9 +74,6 @@ class _FaceOffScreenState extends ConsumerState<FaceOffScreen> {
     final matchState = ref.watch(matchControllerProvider);
     final isOfflinePaused = ref.watch(matchOfflinePauseProvider);
 
-    // NoActiveMatchState only exists for the single frame before initState's
-    // post-frame callback calls startMatch — activeModule isn't set up yet,
-    // so there's nothing meaningful to render besides the background.
     if (matchState is NoActiveMatchState) {
       return Scaffold(
         body: DecoratedBox(decoration: BoxDecoration(gradient: palette.backgroundGradient)),
@@ -140,20 +114,18 @@ class _FaceOffScreenState extends ConsumerState<FaceOffScreen> {
                             onExit: () => Navigator.of(context).popUntil((r) => r.isFirst),
                           )
                         : ListenableBuilder(
-                            listenable: controller.activeModule as FaceOffGameModule,
+                            listenable: controller.activeModule as BowDrawGameModule,
                             builder: (context, _) =>
-                                FaceOffPhaseView(state: (controller.activeModule as FaceOffGameModule).roundState),
+                                BowDrawPhaseView(state: (controller.activeModule as BowDrawGameModule).drawState),
                           ),
                   ),
                 ),
                 if (matchState is! MatchCompleteMatchState)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: DevGestureControls(
+                    child: DevDrawControls(
                       opponentLabel: widget.opponentName,
-                      onFire: (controller.activeModule as FaceOffGameModule).triggerFire,
-                      onDodge: (controller.activeModule as FaceOffGameModule).triggerDodge,
-                      onCrack: (controller.activeModule as FaceOffGameModule).triggerCrack,
+                      onShoot: (controller.activeModule as BowDrawGameModule).triggerShoot,
                     ),
                   ),
               ],

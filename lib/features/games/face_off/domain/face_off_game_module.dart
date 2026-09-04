@@ -46,6 +46,11 @@ class FaceOffGameModule extends ChangeNotifier implements GameModule {
   Timer? _crackTimeoutTimer;
   Timer? _roundTimeoutTimer;
 
+  /// Guards against re-emitting an outcome for a round that already
+  /// resolved — see `BowDrawGameModule._emittedThisRound`'s doc comment for
+  /// the full failure mode this prevents.
+  bool _emittedThisRound = false;
+
   @override
   String get id => 'face_off';
 
@@ -63,6 +68,7 @@ class FaceOffGameModule extends ChangeNotifier implements GameModule {
   @override
   void startRound() {
     _cancelTimers();
+    _emittedThisRound = false;
     _engine.startNeutralPhase();
     _engine.playerReachedNeutral(playerAId);
     _engine.playerReachedNeutral(playerBId);
@@ -120,7 +126,8 @@ class FaceOffGameModule extends ChangeNotifier implements GameModule {
   void _resolveIfNeeded() {
     notifyListeners();
     final s = _engine.state;
-    if (s is! RoundResultRoundState) return;
+    if (s is! RoundResultRoundState || _emittedThisRound) return;
+    _emittedThisRound = true;
     _cueTimer?.cancel();
     _dodgeTimeoutTimer?.cancel();
     _crackTimeoutTimer?.cancel();

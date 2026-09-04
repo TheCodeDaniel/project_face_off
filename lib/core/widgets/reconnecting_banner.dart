@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../../core/theme/app_text_styles.dart';
-import '../../../../../core/theme/match_palette.dart';
-import '../../../../../core/widgets/app_icon.dart';
+import '../theme/app_text_styles.dart';
+import '../theme/match_palette.dart';
+import 'app_icon.dart';
 
 /// Shown while `matchOfflinePauseProvider` is true — the match is paused
 /// locally after this device lost connectivity mid-round (master prompt

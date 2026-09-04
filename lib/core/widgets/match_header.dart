@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../../core/theme/app_text_styles.dart';
-import '../../../../../core/theme/match_palette.dart';
-import '../../../../../core/widgets/app_icon.dart';
+import '../theme/app_text_styles.dart';
+import '../theme/match_palette.dart';
+import 'app_icon.dart';
 
-/// Live-match header: an explicit exit control (see [onExit] doc), round
-/// number + running score, and two minimal ring "face" avatars either side
-/// of a "vs" — a from-scratch abstract look (no camera-driven expressions
-/// exist yet) rather than a plain numbers-only scorecard.
-class DuelMatchHeader extends StatelessWidget {
-  const DuelMatchHeader({
+/// Live-match header, shared by every game in the pool: an explicit exit
+/// control (see [onExit] doc), round number + running score, and two
+/// minimal ring "face" avatars either side of a "vs" — a from-scratch
+/// abstract look (no camera-driven expressions exist yet) rather than a
+/// plain numbers-only scorecard.
+class MatchHeader extends StatelessWidget {
+  const MatchHeader({
     super.key,
     required this.roundNumber,
     required this.myScore,
@@ -26,7 +27,7 @@ class DuelMatchHeader extends StatelessWidget {
   /// swipe-back gesture isn't obviously discoverable mid-match, so relying
   /// on `PopScope` alone leaves no way out for a player who doesn't know (or
   /// can't perform) that gesture. Wired to the same quit-confirmation flow
-  /// as the gesture in `FaceOffScreen`, not a silent bypass of it.
+  /// as the gesture in each game's own screen, not a silent bypass of it.
   final VoidCallback onExit;
 
   @override

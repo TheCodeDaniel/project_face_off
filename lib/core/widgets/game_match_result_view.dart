@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../../core/game_engine/match_controller.dart';
-import '../../../../../core/game_engine/match_state.dart';
-import '../../../../../core/theme/app_text_styles.dart';
-import '../../../../../core/theme/match_palette.dart';
-import '../../../../../core/widgets/app_icon.dart';
-import '../../../../../core/widgets/primary_pill_button.dart';
+import '../game_engine/match_controller.dart';
+import '../game_engine/match_state.dart';
+import '../theme/app_text_styles.dart';
+import '../theme/match_palette.dart';
+import 'app_icon.dart';
+import 'primary_pill_button.dart';
 
-/// Final score screen (master prompt Section 8.4 MatchResult phase): winner
-/// declaration, rematch / return options. This is also the documented
-/// trigger point for the post-match rewarded-ad offer and match-history
-/// save (Section 11 / Firestore) — neither is wired up yet, see CLAUDE.md.
-class FaceOffMatchResultView extends StatelessWidget {
-  const FaceOffMatchResultView({
+/// Final score screen (master prompt Section 8.4 MatchResult phase), shared
+/// by every game in the pool since it only ever reads the game-agnostic
+/// [MatchCompleteMatchState]: winner declaration, rematch / return options.
+/// This is also the documented trigger point for the post-match rewarded-ad
+/// offer and match-history save (Section 11 / Firestore) — neither is wired
+/// up yet, see CLAUDE.md.
+class GameMatchResultView extends StatelessWidget {
+  const GameMatchResultView({
     super.key,
     required this.result,
     required this.opponentLabel,

@@ -177,10 +177,120 @@ own Section 8. Only Face Off has a real module today.
   server-authoritative once a backend exists (so both clients agree on which game they're playing
   rather than each independently randomizing); `pickRandomGameId()` is already the single call site
   that'll need to change, nothing else.
-- **Friends/Profile impact** (multi-game plan Sections 4.1–4.3) is **not yet implemented** — still
-  pending: the "pick a game or Surprise Me" step on the challenge-a-friend flow, per-game stats
-  alongside the aggregate on `ProfileRepository`, and the `matches/{matchId}.gameId` field once a
-  real backend exists. Only the engine-layer refactor (this section) is done so far.
+- **Friends/Profile impact** (multi-game plan Sections 4.1–4.3): now implemented — see below. The
+  `matches/{matchId}.gameId` field (Section 4.4) is still pending, since there's no real backend yet.
+
+## Bow & Draw and Freeze (multi-game plan Sections 2.2/2.3 — build order Steps 2 & 3)
+
+Both ship in the same pass as the `GameModule`/`MatchController` refactor's follow-through, each
+mirroring `FaceOffGameModule`'s exact shape (own round-only engine in `domain/`, a `GameModule`
+wrapper owning that game's `Timer`s, a screen + phase view + dev-harness controls in
+`presentation/`) — `core/game_engine/game_module_factory.dart` and `game_screen_factory.dart` now
+construct all three real games instead of throwing for the other two, and `implementedGameIds`
+includes all three, so Quick Match genuinely picks at random from the full pool.
+
+- **Bow & Draw** (`lib/features/games/bow_draw/`): round win condition is **first player to land a
+  clean hit wins outright** — chosen over "best shot placement within the whole window" per the
+  plan's own instruction to pick one and not over-plan a first pass; a shot's `power` (0.0-1.0,
+  simulating draw distance) within `DrawRules.hitTolerance` of a random per-round `targetPower`
+  hits. A miss doesn't end the round by itself — the other player can still land a clean hit — only
+  both players missing, or the window timing out with nobody landing a hit, draws the round.
+  `DevDrawControls` offers three preset pull-power buttons per player (no real Hand Landmarker yet).
+- **Freeze** (`lib/features/games/freeze/`): structurally mirrors Face Off's crack-detection pattern
+  almost exactly — "first player to move loses, simultaneous moves within a jitter window draw" is
+  the same shape as "first player to crack loses, simultaneous cracks draw," right down to reusing
+  the same 150ms jitter-window constant and boundary semantics (a dedicated 149ms/151ms boundary
+  test, same as Face Off's own crack-window test). Declares `requiredLandmarkers: {}` — reuses
+  whichever landmarker(s) the match's other detection already has active rather than declaring its
+  own model, per the plan.
+- **Two real bugs found while wiring these up, both worth remembering as a shape of bug**:
+  1. **Guarded "arm" transitions silently no-op on round 2+.** `FaceOffRoundEngine.startNeutralPhase()`
+     unconditionally resets to `NeutralRoundState` regardless of current state — but the first
+     versions of `BowDrawRoundEngine.armRound()`/`FreezeRoundEngine.callFreeze()` were *guarded*
+     ("only fire from `NeutralDrawState`"/"only from `BuildingFreezeState`"), and neither module
+     called any reset before re-arming. Round 1 worked fine; every round after silently failed to
+     arm, since the engine was still sitting in the previous round's `*ResultState` and the guard
+     rejected the transition — the match just looked stuck. Fixed by adding an explicit,
+     unconditional `reset()` to both engines and calling it at the top of each module's
+     `startRound()`, matching `FaceOffRoundEngine`'s existing pattern. Caught by a `MatchController`
+     integration test that actually plays multiple rounds end-to-end, not a single-round test — the
+     lesson from the performance-tiering section applies here too: a test that only exercises round 1
+     can't catch a "breaks on round 2" bug.
+  2. **A `GameModule` could double-emit a round outcome.** `_resolveIfNeeded()` in all three modules
+     checked "has the round resolved?" but not "did I already emit for this resolution?" — so a
+     second trigger call arriving after the round had already resolved (state stuck at `*ResultState`
+     until the next `startRound()`) would walk through the same check a second time and push a
+     *second* `MatchRoundOutcome` for the same round, double-counting the score on `MatchController`.
+     Caught by a test that (deliberately, to prove a guaranteed hit regardless of the random target)
+     called `triggerShoot` three times in a row on `BowDrawGameModule` — the first shot resolves the
+     round, and the two harmless-looking follow-up calls each re-triggered emission. Fixed by adding
+     an `_emittedThisRound` flag to all three modules, set on emission and cleared in `startRound()`.
+  - **A related test-writing lesson, not a library bug**: an early version of the `MatchController`
+    Freeze test used one large fixed `async.elapse()` sized to safely clear the *build-up* delay
+    (randomized up to 4.5s) before triggering a move — but Freeze's *freeze window* is only 3s long,
+    nested inside that same wait. For a small random build-up draw (e.g. 1.5s), build-up (1.5s) +
+    window (3s) = 4.5s, so a single elapse comfortably sized for the outer delay could overshoot
+    clean through the inner window's own shorter timeout, timing the round out as a draw before the
+    test ever got to act — a genuinely flaky test (failed roughly 1 run in 6, matching the fraction
+    of the random range where build-up < elapse − window). Fixed by elapsing in small polling steps
+    and stopping the instant the expected intermediate state is reached, instead of one large jump —
+    worth remembering for any future test with two nested randomized/fixed timers of different
+    lengths.
+
+## Dynamic game routing (multi-game plan Section 3.5/4.6)
+
+- **`buildGameScreen(GameId, {opponentName})`** (`core/game_engine/game_screen_factory.dart`) is the
+  same deliberate composition-root exception as `createGameModule` — the one place besides it that
+  imports a game feature's own presentation class. `MatchFoundScreen` and the Friends challenge flow
+  both call this instead of hardcoding a single game's screen.
+- **`MatchFoundScreen` moved from `features/play/presentation/` to `core/widgets/`** — it had zero
+  actual Play-tab-specific coupling (its `matchId` param is just passed through, unused today) and
+  is now the shared pre-match sequence for *both* Quick Match and a direct friend challenge; leaving
+  it under `features/play/` would have meant the Friends feature importing another feature's
+  internals to reach it (engineering rule 1). It now: resolves the match's `GameId` exactly once
+  (`presetGameId` if given, e.g. from a friend's specific pick, else `pickRandomGameId()`), briefly
+  shows a `GameRulesCard` (`core/widgets/`, using each `GameDefinition.quickRules` one-liner) for
+  ~1.8s, then plays the existing `DuelVsTransition`, then hands off via `buildGameScreen`.
+- **Every game screen now takes a `GameId gameId` constructor param** instead of picking its own
+  game internally (the original Face Off migration had `FaceOffScreen` call `pickRandomGameId()`
+  itself, which was fine when it was the only game but would have let two different screens disagree
+  on what was actually being played once more games existed). Rematch reuses `widget.gameId` rather
+  than re-rolling — "rematch" reads as "play this game again," not "surprise me with a different
+  one," a deliberate product call.
+- **The match-chrome widgets were promoted from `features/games/face_off/presentation/widgets/` to
+  `core/widgets/`** since they were already 100% game-agnostic in content (`MatchHeader`,
+  `QuitMatchDialog`, `ReconnectingBanner`, and the result screen — renamed `FaceOffMatchResultView` →
+  `GameMatchResultView` since it only ever reads the generic `MatchCompleteMatchState`) — sharing
+  them avoids reimplementing the identical widget three times as Bow & Draw and Freeze needed the
+  exact same chrome.
+
+## Friends & Profile multi-game touches (multi-game plan Sections 4.1/4.2)
+
+- **`GamePickerSheet`** (`lib/features/friends/presentation/widgets/`): tapping "Challenge to a
+  private match" now shows a picker (one tile per `implementedGameIds` entry, plus "Surprise me")
+  instead of doing nothing. Safe to offer a specific-game choice here — unlike Quick Match, a direct
+  1:1 challenge has no shared queue to fragment. Returns a typed `GamePickerChoice` (`specific(id)`
+  vs `surpriseMe()`) rather than a bare nullable `GameId?`, so "surprise me" (itself a real choice,
+  which resolves to a null `presetGameId`) can't be confused with "the sheet was dismissed without a
+  choice" (a genuinely null result) at the call site.
+  - **Context-after-`await` gotcha**: the picker is shown *on top of* the still-open actions sheet
+    (both live on the root Navigator via `useRootNavigator: true`) rather than popping the actions
+    sheet first — the `Navigator` reference needed after the `await GamePickerSheet.show(...)` is
+    still captured up front regardless, as the safer habit for any future edit that reorders this
+    and pops before awaiting, which would otherwise risk using a deactivated widget's context.
+- **Profile per-game stats** (`PlayerProfile.perGameStats`, a `Map<GameId, GameStats>`): the
+  existing aggregate fields (`winStreak`/`totalMatches`/`winRatePercent`) are untouched and still
+  drive the main stat grid, no UI redesign there per the plan's own instruction. Reachable via a new
+  "Stats by game" row that opens `PerGameStatsSheet` — a bottom sheet, not a new top-level screen,
+  per "keep this simple." A game with no seeded entry (Bow & Draw/Freeze, until real match history
+  exists) reads as "No matches yet" rather than needing an explicit zero record.
+- **Onboarding**: one line of copy on the Play tab ("Every match is a surprise — a new game each
+  time") rather than teaching all three games' rules up front — each match's own `GameRulesCard`
+  carries that specific game's quick rules instead. The three-step showcaseview tour is unchanged.
+- **Cosmetics tagging**: `Cosmetic.applicableGameId` (`GameId?`) — `null` means universal (applies
+  across any game), non-null means game-specific (e.g. `c5`, "Gold Arrows," tagged
+  `GameId.bowDraw`). Purely a data tag for now, same one-time-purchase mechanics either way — no
+  cosmetics-tile UI change, per the plan's own "no structural change needed" call.
 
 ## Onboarding & Auth (Section 6)
 
@@ -683,10 +793,11 @@ RepaintBoundary/Opacity audit; on-device profiling and gesture-pipeline fps vali
 the real gesture engine and a physical device, both out of scope until the games section)**.
 
 Every master-prompt section is now built, and the scope has grown per
-`docs/face-off-multigame-plan.md`: **the `GameModule`/`MatchController` refactor is done** — Face
-Off now runs through the game-agnostic engine described in "Multi-game architecture" above, playable
-end-to-end via the dev gesture-controls harness exactly as before. What's left: **Bow & Draw**, then
-**Freeze** (multi-game plan Section 8 build order), the real camera + MediaPipe gesture engine
-(replacing `DevGestureControls`, needed by every game), the Friends/Profile multi-game touches
-(Sections 4.1–4.3 of the plan), and wiring a real backend (Firebase, per your decision) in place of
-every feature's fake repository.
+`docs/face-off-multigame-plan.md`: **the entire multi-game expansion (Sections 1-8 of that plan) is
+done** — `GameModule`/`MatchController`, all three games (Face Off, Bow & Draw, Freeze) playable
+end-to-end via their own dev-harness controls, dynamic per-game screen routing, the Friends
+game-picker challenge flow, Profile per-game stats, the onboarding copy line, and cosmetics
+game-tagging. What's left: the real camera + MediaPipe gesture engine (replacing every game's own
+`Dev*Controls` harness — needed by all three now, not just one), and wiring a real backend
+(Firebase, per your decision) in place of every feature's fake repository, including the
+`matches/{matchId}.gameId` field once that exists.
