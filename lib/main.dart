@@ -57,7 +57,7 @@ class AppRoot extends ConsumerStatefulWidget {
 }
 
 class _AppRootState extends ConsumerState<AppRoot> {
-  static const _minSplashDuration = Duration(milliseconds: 3200);
+  static const _minSplashDuration = Duration(milliseconds: 2400);
 
   bool _minSplashElapsed = false;
 
