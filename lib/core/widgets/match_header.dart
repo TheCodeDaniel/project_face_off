@@ -1,27 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../game_engine/match_rules.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/match_palette.dart';
 import 'app_icon.dart';
+import 'player_hud_capsule.dart';
 
 /// Live-match header, shared by every game in the pool: an explicit exit
-/// control (see [onExit] doc), round number + running score, and two
-/// minimal ring "face" avatars either side of a "vs" — a from-scratch
-/// abstract look (no camera-driven expressions exist yet) rather than a
-/// plain numbers-only scorecard.
+/// control (see [onExit] doc), round number + running score, and a
+/// [PlayerHudCapsule] per side — top-left for the local player, mirrored
+/// top-right for the opponent — the guideline's "simple capsule HUD"
+/// applied consistently across Face Off, Bow & Draw, and Freeze rather than
+/// each game growing its own scoreboard treatment.
 class MatchHeader extends StatelessWidget {
   const MatchHeader({
     super.key,
     required this.roundNumber,
     required this.myScore,
     required this.opponentScore,
+    required this.opponentLabel,
     required this.onExit,
   });
 
   final int roundNumber;
   final int myScore;
   final int opponentScore;
+  final String opponentLabel;
 
   /// Always-visible exit affordance — iOS has no system back button, and the
   /// swipe-back gesture isn't obviously discoverable mid-match, so relying
@@ -44,16 +49,23 @@ class MatchHeader extends StatelessWidget {
             Text('$myScore - $opponentScore', style: AppTextStyles.numeric.copyWith(color: Colors.white)),
           ],
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 16),
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _FaceAvatar(color: palette.neonViolet),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Text('vs', style: AppTextStyles.label.copyWith(color: Colors.white54)),
+            PlayerHudCapsule(
+              label: 'You',
+              wins: myScore,
+              winsNeeded: MatchRules.roundsToWinMatch,
+              accentColor: palette.neonViolet,
             ),
-            _FaceAvatar(color: palette.neonCyan),
+            const Spacer(),
+            PlayerHudCapsule(
+              label: opponentLabel,
+              wins: opponentScore,
+              winsNeeded: MatchRules.roundsToWinMatch,
+              accentColor: palette.neonCyan,
+              reversed: true,
+            ),
           ],
         ),
       ],
@@ -79,57 +91,6 @@ class _ExitButton extends StatelessWidget {
         alignment: Alignment.center,
         child: const AppIcon(HugeIcons.strokeRoundedCancel01, color: Colors.white, size: 16),
       ),
-    );
-  }
-}
-
-class _FaceAvatar extends StatelessWidget {
-  const _FaceAvatar({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 2),
-      ),
-      alignment: Alignment.center,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: color, width: 1.4),
-          color: color.withValues(alpha: 0.12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _EyeDot(color: color),
-            const SizedBox(width: 6),
-            _EyeDot(color: color),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EyeDot extends StatelessWidget {
-  const _EyeDot({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 4,
-      height: 4,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
 }

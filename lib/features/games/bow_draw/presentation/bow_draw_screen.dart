@@ -143,6 +143,7 @@ class _BowDrawScreenState extends ConsumerState<BowDrawScreen> {
                     roundNumber: roundNumber,
                     myScore: scores[MatchController.meId] ?? 0,
                     opponentScore: scores[MatchController.opponentId] ?? 0,
+                    opponentLabel: widget.opponentName,
                     onExit: () => _handlePopAttempt(matchState),
                   ),
                 ),

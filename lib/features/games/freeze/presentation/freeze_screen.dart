@@ -139,6 +139,7 @@ class _FreezeScreenState extends ConsumerState<FreezeScreen> {
                     roundNumber: roundNumber,
                     myScore: scores[MatchController.meId] ?? 0,
                     opponentScore: scores[MatchController.opponentId] ?? 0,
+                    opponentLabel: widget.opponentName,
                     onExit: () => _handlePopAttempt(matchState),
                   ),
                 ),
