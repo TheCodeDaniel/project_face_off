@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/match_palette.dart';
-import '../../../../core/widgets/app_icon.dart';
-import '../../../../core/widgets/primary_pill_button.dart';
-import '../../domain/round_state.dart';
-import '../duel_controller.dart';
+import '../../../../../core/game_engine/match_controller.dart';
+import '../../../../../core/game_engine/match_state.dart';
+import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/theme/match_palette.dart';
+import '../../../../../core/widgets/app_icon.dart';
+import '../../../../../core/widgets/primary_pill_button.dart';
 
 /// Final score screen (master prompt Section 8.4 MatchResult phase): winner
 /// declaration, rematch / return options. This is also the documented
 /// trigger point for the post-match rewarded-ad offer and match-history
 /// save (Section 11 / Firestore) — neither is wired up yet, see CLAUDE.md.
-class DuelMatchResultView extends StatelessWidget {
-  const DuelMatchResultView({
+class FaceOffMatchResultView extends StatelessWidget {
+  const FaceOffMatchResultView({
     super.key,
     required this.result,
     required this.opponentLabel,
@@ -21,7 +21,7 @@ class DuelMatchResultView extends StatelessWidget {
     required this.onExit,
   });
 
-  final MatchResultRoundState result;
+  final MatchCompleteMatchState result;
   final String opponentLabel;
   final VoidCallback onRematch;
   final VoidCallback onExit;
@@ -29,9 +29,9 @@ class DuelMatchResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context).extension<MatchPalette>() ?? MatchPalette.standard;
-    final iWon = result.winnerId == DuelController.meId;
-    final myScore = result.scores[DuelController.meId] ?? 0;
-    final opponentScore = result.scores[DuelController.opponentId] ?? 0;
+    final iWon = result.winnerId == MatchController.meId;
+    final myScore = result.scores[MatchController.meId] ?? 0;
+    final opponentScore = result.scores[MatchController.opponentId] ?? 0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),

@@ -2,30 +2,30 @@ import 'round_outcome.dart';
 import 'round_rules.dart';
 import 'round_state.dart';
 
-/// The duel game engine (master prompt Section 8). Pure, synchronous domain
-/// logic driven entirely by explicit event methods carrying
+/// Face Off's own round engine (master prompt Section 8). Pure, synchronous
+/// domain logic driven entirely by explicit event methods carrying
 /// server-authoritative timestamps — never touches `DateTime.now()` or raw
 /// blendshape numbers itself, which is what makes it unit-testable with no
 /// camera, network, or Firebase dependency (feed it fake events; see
-/// `test/features/duel/domain/duel_round_engine_test.dart`).
+/// `test/features/games/face_off/domain/face_off_round_engine_test.dart`).
+///
+/// Describes a single round only — cross-round bookkeeping (running score,
+/// best-of-5 completion, forfeiting the whole match) is
+/// `core/game_engine/match_controller.dart`'s job now, not this engine's
+/// (multi-game plan Section 3.2). `FaceOffGameModule` wraps this engine and
+/// is what `MatchController` actually talks to.
 ///
 /// Time-boxed windows (dodge window, simultaneous-crack window, round
-/// timeout) are *not* run as internal `Timer`s — the caller (duel
-/// presentation/data layer, backed by real signaling timestamps) must invoke
-/// [checkDodgeWindowElapsed]/[checkCrackWindowElapsed]/[checkRoundTimeout]
-/// once enough wall-clock time has passed. This keeps the engine free of
-/// hidden async and trivially testable synchronously.
-class DuelRoundEngine {
-  DuelRoundEngine({required this.playerAId, required this.playerBId}) : scores = {playerAId: 0, playerBId: 0};
+/// timeout) are *not* run as internal `Timer`s — the caller
+/// ([FaceOffGameModule], backed by real signaling timestamps eventually)
+/// must invoke [checkDodgeWindowElapsed]/[checkCrackWindowElapsed]/
+/// [checkRoundTimeout] once enough wall-clock time has passed. This keeps
+/// the engine free of hidden async and trivially testable synchronously.
+class FaceOffRoundEngine {
+  FaceOffRoundEngine({required this.playerAId, required this.playerBId});
 
   final String playerAId;
   final String playerBId;
-  final Map<String, int> scores;
-
-  /// 1-indexed. Draws consume a round without moving either score, so this
-  /// can't be inferred from `scores` — needed as its own counter for any UI
-  /// that wants to show "Round N" (e.g. a match header).
-  int roundNumber = 1;
 
   RoundState _state = const NeutralRoundState();
   RoundState get state => _state;
@@ -36,8 +36,9 @@ class DuelRoundEngine {
 
   bool get _roundIsOpen => _state is NeutralRoundState || _state is CueArmedRoundState || _state is CueFiredRoundState;
 
-  /// Reset for a fresh round (called after [RoundResultRoundState] recap, or
-  /// to start Round 1 after the DuelVsTransition).
+  /// Reset for a fresh round (called by [FaceOffGameModule] before arming a
+  /// new round, whether that's Round 1 after the DuelVsTransition or any
+  /// later round after a recap).
   void startNeutralPhase() {
     _pendingCrack = null;
     _state = const NeutralRoundState();
@@ -152,37 +153,6 @@ class DuelRoundEngine {
 
   void _finalize(RoundOutcome outcome) {
     _pendingCrack = null;
-    final winnerId = outcome.winnerId;
-    if (winnerId != null) {
-      scores[winnerId] = (scores[winnerId] ?? 0) + 1;
-    }
-    _state = RoundResultRoundState(outcome: outcome, scores: Map.unmodifiable(scores));
+    _state = RoundResultRoundState(outcome: outcome);
   }
-
-  /// A player forfeits the match outright — e.g. a connectivity-loss grace
-  /// period expiring (master prompt Section 12) — ending it immediately
-  /// regardless of the current score or round phase, crediting the other
-  /// player with the win.
-  void forfeit(String forfeitingPlayerId) {
-    _pendingCrack = null;
-    _state = MatchResultRoundState(winnerId: _other(forfeitingPlayerId), scores: Map.unmodifiable(scores));
-  }
-
-  /// Advance out of [RoundResultRoundState] after the recap: to the next
-  /// round's neutral phase, or to [MatchResultRoundState] if a player has
-  /// reached [RoundRules.roundsToWinMatch].
-  void advanceAfterRecap() {
-    if (_state is! RoundResultRoundState) return;
-    final winner = scores.entries.where((e) => e.value >= RoundRules.roundsToWinMatch).firstOrNull;
-    if (winner != null) {
-      _state = MatchResultRoundState(winnerId: winner.key, scores: Map.unmodifiable(scores));
-    } else {
-      roundNumber++;
-      startNeutralPhase();
-    }
-  }
-}
-
-extension<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

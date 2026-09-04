@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/match_palette.dart';
-import '../../../../core/widgets/app_icon.dart';
+import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/theme/match_palette.dart';
+import '../../../../../core/widgets/app_icon.dart';
 
-/// Shown while [duelOfflinePauseProvider] is true — the match is paused
+/// Shown while `matchOfflinePauseProvider` is true — the match is paused
 /// locally after this device lost connectivity mid-round (master prompt
 /// Section 12). Deliberately plain/static rather than animated: this
 /// screen already has enough motion, and a paused match is exactly the

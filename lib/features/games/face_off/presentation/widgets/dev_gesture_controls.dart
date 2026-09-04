@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/widgets/app_icon.dart';
-import '../duel_controller.dart';
+import '../../../../../core/game_engine/match_controller.dart';
+import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/widgets/app_icon.dart';
 
 /// **Temporary local test harness** standing in for the real gesture engine
 /// and opponent networking (master prompt Section 8.6 / 8.5) — neither
@@ -11,7 +11,7 @@ import '../duel_controller.dart';
 /// from one device so the round state machine is genuinely playable and
 /// demoable today. Delete this whole widget once `core/gesture_engine/`
 /// has a real MediaPipe implementation and Realtime DB signaling replaces
-/// [DuelController]'s local timers.
+/// [FaceOffGameModule]'s local timers.
 class DevGestureControls extends StatelessWidget {
   const DevGestureControls({
     super.key,
@@ -44,7 +44,7 @@ class DevGestureControls extends StatelessWidget {
               Expanded(
                 child: _PlayerControls(
                   label: 'You',
-                  playerId: DuelController.meId,
+                  playerId: MatchController.meId,
                   onFire: onFire,
                   onDodge: onDodge,
                   onCrack: onCrack,
@@ -54,7 +54,7 @@ class DevGestureControls extends StatelessWidget {
               Expanded(
                 child: _PlayerControls(
                   label: opponentLabel,
-                  playerId: DuelController.opponentId,
+                  playerId: MatchController.opponentId,
                   onFire: onFire,
                   onDodge: onDodge,
                   onCrack: onCrack,

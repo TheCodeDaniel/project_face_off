@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/match_palette.dart';
-import '../../../../core/widgets/app_icon.dart';
+import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/theme/match_palette.dart';
+import '../../../../../core/widgets/app_icon.dart';
 
 /// Live-match header: an explicit exit control (see [onExit] doc), round
 /// number + running score, and two minimal ring "face" avatars either side
@@ -26,7 +26,7 @@ class DuelMatchHeader extends StatelessWidget {
   /// swipe-back gesture isn't obviously discoverable mid-match, so relying
   /// on `PopScope` alone leaves no way out for a player who doesn't know (or
   /// can't perform) that gesture. Wired to the same quit-confirmation flow
-  /// as the gesture in `DuelScreen`, not a silent bypass of it.
+  /// as the gesture in `FaceOffScreen`, not a silent bypass of it.
   final VoidCallback onExit;
 
   @override

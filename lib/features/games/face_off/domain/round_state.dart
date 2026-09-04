@@ -47,17 +47,11 @@ final class ResolvingRoundState extends RoundState {
 }
 
 /// Outcome displayed, brief pause before the next round (or match end).
+/// Cross-round bookkeeping (running score, whether the match itself is over)
+/// lives one level up, in `MatchController`'s `MatchState` — this state
+/// machine only ever describes a single round.
 final class RoundResultRoundState extends RoundState {
-  const RoundResultRoundState({required this.outcome, required this.scores});
+  const RoundResultRoundState({required this.outcome});
 
   final RoundOutcome outcome;
-  final Map<String, int> scores;
-}
-
-/// Best-of-5 concluded.
-final class MatchResultRoundState extends RoundState {
-  const MatchResultRoundState({required this.winnerId, required this.scores});
-
-  final String? winnerId;
-  final Map<String, int> scores;
 }

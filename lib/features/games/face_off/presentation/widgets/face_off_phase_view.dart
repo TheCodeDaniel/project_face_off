@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/theme/match_palette.dart';
-import '../../../../core/widgets/app_icon.dart';
+import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/theme/match_palette.dart';
+import '../../../../../core/widgets/app_icon.dart';
 import '../../domain/round_state.dart';
 
 /// Center-stage content for the current [RoundState] (master prompt Section
 /// 8.4). Cue timing is deliberately never shown numerically during
 /// [CueArmedRoundState] — the spec requires the cue-fire moment stay hidden
 /// from the player, only a tense "get ready" visual.
-class DuelPhaseView extends StatelessWidget {
-  const DuelPhaseView({super.key, required this.state});
+class FaceOffPhaseView extends StatelessWidget {
+  const FaceOffPhaseView({super.key, required this.state});
 
   final RoundState state;
 
@@ -46,7 +46,6 @@ class DuelPhaseView extends StatelessWidget {
         subtitle: '',
       ),
       RoundResultRoundState() => const SizedBox.shrink(),
-      MatchResultRoundState() => const SizedBox.shrink(),
     };
   }
 }

@@ -14,9 +14,10 @@ import 'widgets/matchmaking_timeout_view.dart';
 /// paints *underneath* `FloatingNavBar`, so a full-screen route pushed there
 /// would render behind the nav bar instead of covering it (the same bug
 /// class as the modal-sheet fix on `HowToPlaySheet`). Everything this
-/// screen hands off to (`MatchFoundScreen`, `DuelScreen`) inherits the root
-/// Navigator automatically via ordinary `Navigator.of(context)` calls, since
-/// by the time they're pushed this screen's subtree already lives there.
+/// screen hands off to (`MatchFoundScreen`, the matched game's own screen)
+/// inherits the root Navigator automatically via ordinary
+/// `Navigator.of(context)` calls, since by the time they're pushed this
+/// screen's subtree already lives there.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 

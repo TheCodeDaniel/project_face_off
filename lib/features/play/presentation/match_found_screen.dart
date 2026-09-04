@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/duel_vs_transition.dart';
-import '../../duel/presentation/duel_screen.dart';
+import '../../games/face_off/presentation/face_off_screen.dart';
 
 /// Shown once matchmaking pairs two players: plays the [DuelVsTransition]
 /// (built in Section 4) as the dramatic pre-match beat, then hands off to
-/// [DuelScreen] — the duel feature owns everything from there (master
-/// prompt Section 7, point 3).
+/// the matched game's own screen — [FaceOffScreen] for now, the only game in
+/// the pool with a real [GameModule] built (multi-game plan Section 8). Once
+/// Bow & Draw/Freeze exist, this becomes a small switch on the
+/// server-authoritative picked `GameId` instead of a single hardcoded push.
 class MatchFoundScreen extends StatefulWidget {
   const MatchFoundScreen({super.key, required this.matchId, required this.opponentName});
 
@@ -36,7 +38,7 @@ class _MatchFoundScreenState extends State<MatchFoundScreen> with SingleTickerPr
         onComplete: () {
           Navigator.of(
             context,
-          ).pushReplacement(MaterialPageRoute(builder: (_) => DuelScreen(opponentName: widget.opponentName)));
+          ).pushReplacement(MaterialPageRoute(builder: (_) => FaceOffScreen(opponentName: widget.opponentName)));
         },
       ),
     );

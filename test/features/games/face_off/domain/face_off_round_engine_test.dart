@@ -1,16 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:project_face_off/features/duel/domain/duel_round_engine.dart';
-import 'package:project_face_off/features/duel/domain/round_outcome.dart';
-import 'package:project_face_off/features/duel/domain/round_state.dart';
+import 'package:project_face_off/features/games/face_off/domain/face_off_round_engine.dart';
+import 'package:project_face_off/features/games/face_off/domain/round_outcome.dart';
+import 'package:project_face_off/features/games/face_off/domain/round_state.dart';
 
 void main() {
   const playerA = 'playerA';
   const playerB = 'playerB';
   final t0 = DateTime.utc(2026, 1, 1);
 
-  DuelRoundEngine engine() => DuelRoundEngine(playerAId: playerA, playerBId: playerB);
+  FaceOffRoundEngine engine() => FaceOffRoundEngine(playerAId: playerA, playerBId: playerB);
 
-  void reachCueFired(DuelRoundEngine e, {DateTime? fireAt}) {
+  void reachCueFired(FaceOffRoundEngine e, {DateTime? fireAt}) {
     e.playerReachedNeutral(playerA);
     e.playerReachedNeutral(playerB);
     e.armCue(t0.add(const Duration(seconds: 2)));
@@ -28,7 +28,6 @@ void main() {
       final result = e.state as RoundResultRoundState;
       expect(result.outcome.winnerId, playerA);
       expect(result.outcome.reason, RoundEndReason.firedFirst);
-      expect(e.scores[playerA], 1);
     });
   });
 
@@ -42,8 +41,6 @@ void main() {
 
       final s = e.state as CueFiredRoundState;
       expect(s.attackerId, isNull);
-      expect(e.scores[playerA], 0);
-      expect(e.scores[playerB], 0);
     });
   });
 
@@ -115,7 +112,7 @@ void main() {
   });
 
   group('simultaneous crack draw', () {
-    test('both players crack within 150ms -> draw, no score change', () {
+    test('both players crack within 150ms -> draw', () {
       final e = engine();
       reachCueFired(e);
       final fireAt = t0.add(const Duration(seconds: 2));
@@ -125,8 +122,6 @@ void main() {
       final result = e.state as RoundResultRoundState;
       expect(result.outcome.isDraw, isTrue);
       expect(result.outcome.reason, RoundEndReason.simultaneousCrack);
-      expect(e.scores[playerA], 0);
-      expect(e.scores[playerB], 0);
     });
 
     test('cracks more than 150ms apart do not count as simultaneous', () {
@@ -159,96 +154,16 @@ void main() {
     });
   });
 
-  group('full best-of-5 match completion', () {
-    test('first to 3 round wins takes the match', () {
-      final e = engine();
-      for (var i = 0; i < 3; i++) {
-        e.startNeutralPhase();
-        reachCueFired(e);
-        final fireAt = t0.add(const Duration(seconds: 2));
-        e.onFireGesture(playerA, fireAt);
-        e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
-        expect(e.state, isA<RoundResultRoundState>());
-
-        if (i < 2) {
-          e.advanceAfterRecap();
-          expect(e.state, isA<NeutralRoundState>());
-        }
-      }
-
-      e.advanceAfterRecap();
-      final matchResult = e.state as MatchResultRoundState;
-      expect(matchResult.winnerId, playerA);
-      expect(matchResult.scores[playerA], 3);
-    });
-  });
-
-  group('round number tracking', () {
-    test('starts at 1 and increments on advance to a new round', () {
-      final e = engine();
-      expect(e.roundNumber, 1);
-
-      reachCueFired(e);
-      final fireAt = t0.add(const Duration(seconds: 2));
-      e.onFireGesture(playerA, fireAt);
-      e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
-      e.advanceAfterRecap();
-
-      expect(e.roundNumber, 2);
-    });
-
-    test('a draw still consumes a round (unlike scores, which stay unchanged)', () {
+  group('startNeutralPhase resets a resolved round', () {
+    test('clears the pending outcome and returns to Neutral', () {
       final e = engine();
       reachCueFired(e);
       e.checkRoundTimeout(t0.add(const Duration(seconds: 11)));
-      expect((e.state as RoundResultRoundState).outcome.isDraw, isTrue);
+      expect(e.state, isA<RoundResultRoundState>());
 
-      e.advanceAfterRecap();
+      e.startNeutralPhase();
 
-      expect(e.roundNumber, 2);
-      expect(e.scores[playerA], 0);
-      expect(e.scores[playerB], 0);
-    });
-
-    test('does not increment past the round that ends the match', () {
-      final e = engine();
-      for (var i = 0; i < 3; i++) {
-        e.startNeutralPhase();
-        reachCueFired(e);
-        final fireAt = t0.add(const Duration(seconds: 2));
-        e.onFireGesture(playerA, fireAt);
-        e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
-        e.advanceAfterRecap();
-      }
-
-      expect(e.state, isA<MatchResultRoundState>());
-      expect(e.roundNumber, 3);
-    });
-  });
-
-  group('forfeit (master prompt Section 12 — connectivity-loss grace period)', () {
-    test('credits the other player with the win regardless of the current score', () {
-      final e = engine();
-      reachCueFired(e);
-      final fireAt = t0.add(const Duration(seconds: 2));
-      e.onFireGesture(playerA, fireAt);
-      e.checkDodgeWindowElapsed(fireAt.add(const Duration(milliseconds: 401)));
-      expect(e.scores[playerA], 1);
-
-      e.forfeit(playerA);
-
-      final result = e.state as MatchResultRoundState;
-      expect(result.winnerId, playerB);
-    });
-
-    test('ends the match from mid-round, not just between rounds', () {
-      final e = engine();
-      reachCueFired(e);
-
-      e.forfeit(playerB);
-
-      expect(e.state, isA<MatchResultRoundState>());
-      expect((e.state as MatchResultRoundState).winnerId, playerA);
+      expect(e.state, isA<NeutralRoundState>());
     });
   });
 }
