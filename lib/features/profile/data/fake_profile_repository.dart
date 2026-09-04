@@ -14,12 +14,13 @@ import '../domain/region.dart';
 import '../domain/subscription_package.dart';
 import '../domain/subscription_tier.dart';
 
-/// In-memory [ProfileRepository] used until Firebase + RevenueCat exist (see
+/// In-memory [ProfileRepository] used until Supabase + RevenueCat exist (see
 /// CLAUDE.md). `friendsCount` here is a static demo number rather than
 /// derived from the friends feature — features never reach into each
 /// other's internals (see engineering rule 1), so a real implementation
-/// would read this off the player's own Firestore document, which the
-/// friends feature keeps in sync, not off `FriendsRepository` directly.
+/// would read this off the player's own `users` row (or a `friendships`
+/// count query), which the friends feature keeps in sync, not off
+/// `FriendsRepository` directly.
 class FakeProfileRepository implements ProfileRepository {
   FakeProfileRepository({required String displayName}) : _profile = _seedProfile(displayName) {
     _cosmetics.addAll([

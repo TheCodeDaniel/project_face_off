@@ -44,7 +44,14 @@ class _BowDrawScreenState extends ConsumerState<BowDrawScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(matchControllerProvider.notifier).startMatch(widget.gameId, widget.opponentName);
+      ref
+          .read(matchControllerProvider.notifier)
+          .startMatch(
+            gameId: widget.gameId,
+            matchId: widget.matchId,
+            realOpponentId: widget.opponentId,
+            opponentLabel: widget.opponentName,
+          );
     });
   }
 

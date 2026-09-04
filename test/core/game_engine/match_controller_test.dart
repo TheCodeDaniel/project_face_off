@@ -17,7 +17,12 @@ void main() {
       container.listen(matchControllerProvider, (_, _) {});
       final controller = container.read(matchControllerProvider.notifier);
 
-      controller.startMatch(GameId.bowDraw, 'Bot');
+      controller.startMatch(
+        gameId: GameId.bowDraw,
+        matchId: 'match-1',
+        realOpponentId: 'opponent-uid',
+        opponentLabel: 'Bot',
+      );
 
       for (var i = 0; i < 2; i++) {
         final module = controller.activeModule as BowDrawGameModule;
@@ -53,7 +58,12 @@ void main() {
         container.listen(matchControllerProvider, (_, _) {});
         final controller = container.read(matchControllerProvider.notifier);
 
-        controller.startMatch(GameId.freeze, 'Bot');
+        controller.startMatch(
+          gameId: GameId.freeze,
+          matchId: 'match-1',
+          realOpponentId: 'opponent-uid',
+          opponentLabel: 'Bot',
+        );
         expect(controller.activeModule, isA<FreezeGameModule>());
 
         for (var i = 0; i < 3; i++) {
@@ -92,7 +102,12 @@ void main() {
         container.listen(matchControllerProvider, (_, _) {});
         final controller = container.read(matchControllerProvider.notifier);
 
-        controller.startMatch(GameId.faceOff, 'Bot');
+        controller.startMatch(
+          gameId: GameId.faceOff,
+          matchId: 'match-1',
+          realOpponentId: 'opponent-uid',
+          opponentLabel: 'Bot',
+        );
 
         expect(container.read(matchControllerProvider), isA<PlayingRoundMatchState>());
         expect(controller.activeModule, isA<FaceOffGameModule>());
@@ -107,7 +122,12 @@ void main() {
         container.listen(matchControllerProvider, (_, _) {});
         final controller = container.read(matchControllerProvider.notifier);
 
-        controller.startMatch(GameId.faceOff, 'Bot');
+        controller.startMatch(
+          gameId: GameId.faceOff,
+          matchId: 'match-1',
+          realOpponentId: 'opponent-uid',
+          opponentLabel: 'Bot',
+        );
         async.elapse(const Duration(seconds: 5)); // past the max 4s cue delay -> CueFired
 
         final module = controller.activeModule as FaceOffGameModule;
@@ -131,7 +151,12 @@ void main() {
         container.listen(matchControllerProvider, (_, _) {});
         final controller = container.read(matchControllerProvider.notifier);
 
-        controller.startMatch(GameId.faceOff, 'Bot');
+        controller.startMatch(
+          gameId: GameId.faceOff,
+          matchId: 'match-1',
+          realOpponentId: 'opponent-uid',
+          opponentLabel: 'Bot',
+        );
 
         for (var i = 0; i < 3; i++) {
           async.elapse(const Duration(seconds: 5));
@@ -155,7 +180,12 @@ void main() {
           container.listen(matchControllerProvider, (_, _) {});
           final controller = container.read(matchControllerProvider.notifier);
 
-          controller.startMatch(GameId.faceOff, 'Bot');
+          controller.startMatch(
+            gameId: GameId.faceOff,
+            matchId: 'match-1',
+            realOpponentId: 'opponent-uid',
+            opponentLabel: 'Bot',
+          );
 
           controller.handleConnectivityChange(false);
           async.elapse(const Duration(seconds: 5)); // past the max cue delay if it were still running
@@ -170,7 +200,12 @@ void main() {
           container.listen(matchControllerProvider, (_, _) {});
           final controller = container.read(matchControllerProvider.notifier);
 
-          controller.startMatch(GameId.faceOff, 'Bot');
+          controller.startMatch(
+            gameId: GameId.faceOff,
+            matchId: 'match-1',
+            realOpponentId: 'opponent-uid',
+            opponentLabel: 'Bot',
+          );
           controller.handleConnectivityChange(false);
           async.elapse(const Duration(seconds: 10)); // well inside the 20s grace period
 
@@ -188,7 +223,12 @@ void main() {
           container.listen(matchControllerProvider, (_, _) {});
           final controller = container.read(matchControllerProvider.notifier);
 
-          controller.startMatch(GameId.faceOff, 'Bot');
+          controller.startMatch(
+            gameId: GameId.faceOff,
+            matchId: 'match-1',
+            realOpponentId: 'opponent-uid',
+            opponentLabel: 'Bot',
+          );
           controller.handleConnectivityChange(false);
           async.elapse(const Duration(seconds: 21)); // past the 20s grace period
 
@@ -204,7 +244,12 @@ void main() {
           container.listen(matchControllerProvider, (_, _) {});
           final controller = container.read(matchControllerProvider.notifier);
 
-          controller.startMatch(GameId.faceOff, 'Bot');
+          controller.startMatch(
+            gameId: GameId.faceOff,
+            matchId: 'match-1',
+            realOpponentId: 'opponent-uid',
+            opponentLabel: 'Bot',
+          );
           controller.handleConnectivityChange(false);
           async.elapse(const Duration(seconds: 21));
           final forfeited = container.read(matchControllerProvider) as MatchCompleteMatchState;

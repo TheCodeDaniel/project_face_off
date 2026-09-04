@@ -1,14 +1,22 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'fake_match_repository.dart';
 import 'game_module.dart';
 import 'game_module_factory.dart';
 import 'game_pool.dart';
 import 'match_offline_pause_provider.dart';
+import 'match_repository.dart';
+import 'match_result_record.dart';
 import 'match_round_outcome.dart';
 import 'match_rules.dart';
 import 'match_state.dart';
+
+/// Overridden with a real Supabase-backed implementation once a project
+/// exists — see CLAUDE.md and `supabase/migrations/`.
+final matchRepositoryProvider = Provider<MatchRepository>((ref) => FakeMatchRepository());
 
 /// `autoDispose` so leaving the active game's screen (whether the match
 /// finished or the player quit early) actually tears the controller down —
@@ -33,6 +41,12 @@ class MatchController extends AutoDisposeNotifier<MatchState> {
   Map<String, int> _scores = {meId: 0, opponentId: 0};
   int _roundNumber = 1;
 
+  /// Real identity/session fields — distinct from the [meId]/[opponentId]
+  /// slot labels above, which only exist for the local round engine. Needed
+  /// to write a [MatchResultRecord] once the match concludes.
+  String _matchId = '';
+  String _realOpponentId = '';
+
   StreamSubscription<MatchRoundOutcome>? _outcomeSub;
   Timer? _recapTimer;
   Timer? _forfeitTimer;
@@ -56,8 +70,15 @@ class MatchController extends AutoDisposeNotifier<MatchState> {
   Map<String, int> get scores => _scores;
   int get roundNumber => _roundNumber;
 
-  void startMatch(GameId gameId, String opponentLabel) {
+  void startMatch({
+    required GameId gameId,
+    required String matchId,
+    required String realOpponentId,
+    required String opponentLabel,
+  }) {
     this.opponentLabel = opponentLabel;
+    _matchId = matchId;
+    _realOpponentId = realOpponentId;
     _cancelRoundTimers();
     _outcomeSub?.cancel();
     _module?.dispose();
@@ -69,6 +90,26 @@ class MatchController extends AutoDisposeNotifier<MatchState> {
     _outcomeSub = _module!.roundOutcomes.listen(_onRoundOutcome);
     _module!.startRound();
     state = PlayingRoundMatchState(gameId: gameId);
+  }
+
+  /// Fires `MatchRepository.saveMatchResult` at every point [MatchController]
+  /// transitions to [MatchCompleteMatchState] — normal win/loss and offline
+  /// forfeit alike (see [handleConnectivityChange]).
+  void _saveMatchResult({required bool? iWon}) {
+    ref
+        .read(matchRepositoryProvider)
+        .saveMatchResult(
+          MatchResultRecord(
+            matchId: _matchId,
+            gameId: _activeGameId!,
+            opponentId: _realOpponentId,
+            opponentLabel: opponentLabel,
+            iWon: iWon,
+            myScore: _scores[meId] ?? 0,
+            opponentScore: _scores[opponentId] ?? 0,
+            concludedAt: clock.now(),
+          ),
+        );
   }
 
   void _onRoundOutcome(MatchRoundOutcome outcome) {
@@ -85,6 +126,7 @@ class MatchController extends AutoDisposeNotifier<MatchState> {
   void _advanceAfterRecap() {
     final winner = _scores.entries.where((e) => e.value >= MatchRules.roundsToWinMatch).firstOrNull;
     if (winner != null) {
+      _saveMatchResult(iWon: winner.key == meId);
       state = MatchCompleteMatchState(winnerId: winner.key, scores: Map.unmodifiable(_scores));
       return;
     }
@@ -116,6 +158,7 @@ class MatchController extends AutoDisposeNotifier<MatchState> {
         _module?.resetRound();
         _offlinePaused = false;
         ref.read(matchOfflinePauseProvider.notifier).state = false;
+        _saveMatchResult(iWon: false);
         state = MatchCompleteMatchState(winnerId: opponentId, scores: Map.unmodifiable(_scores));
       });
     } else if (isOnline && _offlinePaused) {

@@ -4,9 +4,11 @@ enum RematchAnswer { accepted, declined }
 /// Rematch-request contract (post-match flow plan Section 3/5). The real
 /// implementation is a lightweight Realtime DB node,
 /// `/rematchRequests/{matchId}` (requester id, target id, server
-/// timestamp), cleared on accept/decline/timeout — ephemeral, not
-/// Firestore, same reasoning as the match event log. Needs a real Firebase
-/// project first; see CLAUDE.md. [FakeRematchRepository] backs this today.
+/// timestamp), cleared on accept/decline/timeout — ephemeral, high-
+/// frequency, small-payload state, so it stays on Realtime DB rather than
+/// Postgres, same reasoning as the match event log (see CLAUDE.md's hybrid-
+/// backend section). Needs a real Firebase project first.
+/// [FakeRematchRepository] backs this today.
 abstract class RematchRepository {
   /// Sends a rematch request for [matchId] to [opponentId]. Emits exactly
   /// one [RematchAnswer] if the opponent responds — never emits at all for

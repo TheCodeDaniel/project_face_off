@@ -7,9 +7,14 @@ import 'subscription_package.dart';
 import 'subscription_tier.dart';
 
 /// Profile contract (master prompt Section 10). The real implementation is
-/// Firestore-backed for profile/leaderboard/cosmetics and RevenueCat-backed
-/// for subscription state — needs a real Firebase project + RevenueCat keys
-/// first; see CLAUDE.md. [FakeProfileRepository] backs this today.
+/// Postgres-backed (via Supabase) for profile/leaderboard/cosmetics — the
+/// `users`/`user_game_stats`/`cosmetics_owned` tables, see
+/// `supabase/migrations/` — and RevenueCat-backed for subscription state
+/// (`subscriptions_cache`, kept in sync via RevenueCat webhook, never
+/// trusting client-reported purchase state directly). This corrects the
+/// original master prompt's Firestore plan — see the game/UI/backend
+/// guideline's "hybrid split" section in CLAUDE.md for why. Needs a real
+/// Supabase project + RevenueCat keys first. [FakeProfileRepository] backs this today.
 ///
 /// Leaderboard ranking metric is **total round wins** (not match wins) —
 /// documented explicitly per the master prompt's own instruction not to

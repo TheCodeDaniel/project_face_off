@@ -97,7 +97,7 @@ class FakeFriendsRepository implements FriendsRepository {
   @override
   Future<void> reportUser(String userId, ReportReason reason, String? details) async {
     // No moderation backend for v1 (master prompt Section 9) — a real
-    // implementation writes to a Firestore `reports` collection.
+    // implementation writes to the Postgres `reports` table.
     await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 }
