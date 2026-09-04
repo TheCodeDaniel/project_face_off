@@ -152,6 +152,7 @@ class _BowDrawScreenState extends ConsumerState<BowDrawScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: DevDrawControls(
                       opponentLabel: widget.opponentName,
+                      onDrawUpdate: (controller.activeModule as BowDrawGameModule).updateDrawPower,
                       onShoot: (controller.activeModule as BowDrawGameModule).triggerShoot,
                     ),
                   ),

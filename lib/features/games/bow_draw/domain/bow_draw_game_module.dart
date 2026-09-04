@@ -33,6 +33,17 @@ class BowDrawGameModule extends ChangeNotifier implements GameModule {
   final BowDrawRoundEngine _engine;
   Timer? _windowTimer;
 
+  /// Live draw-power-in-progress per player, driven by [DrawUpdate] events
+  /// from the real hand-gesture pipeline (game/UI/backend guideline Section
+  /// 2) once wired up — for now, by the dev-harness drag control. Kept
+  /// outside [BowDrawRoundEngine]'s own state deliberately: this is purely a
+  /// presentation value the bow rig's draw-back animation reads (the single
+  /// most important visual feedback loop per the guideline), not something
+  /// that affects round-outcome logic, which only ever sees a shot's final
+  /// released power via [triggerShoot].
+  final _livePower = <String, double>{};
+  Map<String, double> get livePower => Map.unmodifiable(_livePower);
+
   /// Guards against re-emitting an outcome for a round that already
   /// resolved — the engine's state stays [DrawResultState] until the next
   /// [startRound], so a stray extra [triggerShoot] call in that window
@@ -61,6 +72,7 @@ class BowDrawGameModule extends ChangeNotifier implements GameModule {
     _cancelTimers();
     _engine.reset();
     _emittedThisRound = false;
+    _livePower.clear();
     final targetPower =
         DrawRules.targetPowerMin + _random.nextDouble() * (DrawRules.targetPowerMax - DrawRules.targetPowerMin);
     final windowEndsAt = clock.now().add(DrawRules.shotWindow);
@@ -77,8 +89,17 @@ class BowDrawGameModule extends ChangeNotifier implements GameModule {
   void resetRound() => _cancelTimers();
 
   void triggerShoot(String playerId, double power) {
+    _livePower[playerId] = 0;
     _engine.onShoot(playerId, power);
     _resolveIfNeeded();
+  }
+
+  /// Continuous draw-power update (`DrawUpdate.power`, 0.0-1.0) — never
+  /// resolves the shot itself, just what the bow rig's draw-back animation
+  /// renders while a player is mid-pull.
+  void updateDrawPower(String playerId, double power) {
+    _livePower[playerId] = power;
+    notifyListeners();
   }
 
   void _resolveIfNeeded() {

@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../../core/game_engine/match_controller.dart';
 import '../../../../../core/theme/app_text_styles.dart';
-import '../../../../../core/widgets/app_icon.dart';
 
 /// **Temporary local test harness** standing in for the real Hand Landmarker
-/// pipeline (multi-game plan Section 2.2) — three preset draw-power buttons
-/// per player (light/medium/full pull) in place of tracking real hand
-/// distance. Delete once the real hand-gesture engine replaces this.
+/// pipeline (game/UI/backend guideline Section 2) — a vertical drag per
+/// player stands in for real hand pull-back distance, calling [onDrawUpdate]
+/// continuously while dragging (exercising the same continuous-power path
+/// the real gesture engine's `DrawUpdate` events will drive) and [onShoot]
+/// on release, carrying whatever power the drag reached. Delete once the
+/// real hand-gesture engine replaces this.
 class DevDrawControls extends StatelessWidget {
-  const DevDrawControls({super.key, required this.opponentLabel, required this.onShoot});
+  const DevDrawControls({super.key, required this.opponentLabel, required this.onDrawUpdate, required this.onShoot});
 
   final String opponentLabel;
+  final void Function(String playerId, double power) onDrawUpdate;
   final void Function(String playerId, double power) onShoot;
 
   @override
@@ -31,11 +33,21 @@ class DevDrawControls extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _PlayerControls(label: 'You', playerId: MatchController.meId, onShoot: onShoot),
+                child: _PullControl(
+                  label: 'You',
+                  playerId: MatchController.meId,
+                  onDrawUpdate: onDrawUpdate,
+                  onShoot: onShoot,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _PlayerControls(label: opponentLabel, playerId: MatchController.opponentId, onShoot: onShoot),
+                child: _PullControl(
+                  label: opponentLabel,
+                  playerId: MatchController.opponentId,
+                  onDrawUpdate: onDrawUpdate,
+                  onShoot: onShoot,
+                ),
               ),
             ],
           ),
@@ -45,55 +57,68 @@ class DevDrawControls extends StatelessWidget {
   }
 }
 
-class _PlayerControls extends StatelessWidget {
-  const _PlayerControls({required this.label, required this.playerId, required this.onShoot});
+class _PullControl extends StatefulWidget {
+  const _PullControl({required this.label, required this.playerId, required this.onDrawUpdate, required this.onShoot});
 
   final String label;
   final String playerId;
+  final void Function(String playerId, double power) onDrawUpdate;
   final void Function(String playerId, double power) onShoot;
+
+  @override
+  State<_PullControl> createState() => _PullControlState();
+}
+
+class _PullControlState extends State<_PullControl> {
+  static const _trackHeight = 72.0;
+
+  double _power = 0;
+
+  void _updatePower(double localDy) {
+    final power = (localDy / _trackHeight).clamp(0.0, 1.0);
+    setState(() => _power = power);
+    widget.onDrawUpdate(widget.playerId, power);
+  }
+
+  void _release() {
+    widget.onShoot(widget.playerId, _power);
+    setState(() => _power = 0);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: AppTextStyles.label.copyWith(color: Colors.white70)),
+        Text(widget.label, style: AppTextStyles.label.copyWith(color: Colors.white70)),
         const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _ShotButton(label: 'Light', power: 0.3, onTap: () => onShoot(playerId, 0.3)),
-            _ShotButton(label: 'Medium', power: 0.6, onTap: () => onShoot(playerId, 0.6)),
-            _ShotButton(label: 'Full', power: 0.9, onTap: () => onShoot(playerId, 0.9)),
-          ],
+        GestureDetector(
+          onVerticalDragUpdate: (details) => _updatePower(details.localPosition.dy),
+          onVerticalDragEnd: (_) => _release(),
+          onVerticalDragCancel: () => setState(() => _power = 0),
+          child: Container(
+            width: 44,
+            height: _trackHeight,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.bottomCenter,
+            child: FractionallySizedBox(
+              heightFactor: _power,
+              widthFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
         ),
+        const SizedBox(height: 4),
+        Text('${(_power * 100).round()}%', style: AppTextStyles.label.copyWith(color: Colors.white54, fontSize: 11)),
       ],
-    );
-  }
-}
-
-class _ShotButton extends StatelessWidget {
-  const _ShotButton({required this.label, required this.power, required this.onTap});
-
-  final String label;
-  final double power;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: '$label pull',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: const AppIcon(HugeIcons.strokeRoundedTarget03, color: Colors.white, size: 18),
-        ),
-      ),
     );
   }
 }
