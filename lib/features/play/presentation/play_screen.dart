@@ -69,7 +69,17 @@ class PlayScreen extends ConsumerWidget {
                 icon: HugeIcons.strokeRoundedHelpCircle,
                 onPressed: () => HowToPlaySheet.show(context),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+              // Multi-game plan Section 4.6: a single line of copy rather
+              // than teaching all three games' rules during onboarding —
+              // each match's own pre-round moment (GameRulesCard) carries
+              // that specific game's quick rules instead.
+              Text(
+                'Every match is a surprise — a new game each time.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.label.copyWith(color: Colors.white60),
+              ),
+              const SizedBox(height: 20),
               Text('Recent matches', style: AppTextStyles.label.copyWith(color: Colors.white70)),
               const SizedBox(height: 10),
               const MatchHistoryTeaser(),

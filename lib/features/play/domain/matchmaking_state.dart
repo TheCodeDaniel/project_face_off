@@ -20,9 +20,16 @@ final class MatchmakingSearching extends MatchmakingState {
 }
 
 final class MatchmakingFound extends MatchmakingState {
-  const MatchmakingFound({required this.matchId, required this.opponentName});
+  const MatchmakingFound({required this.matchId, required this.opponentId, required this.opponentName});
 
   final String matchId;
+
+  /// The opponent's stable player id — distinct from `MatchController`'s
+  /// internal `'me'`/`'opponent'` round-engine slot labels, which never
+  /// leave the local game engine. This is the real identity used for
+  /// post-match actions (Rematch, Add Friend, Report/Block) that need to
+  /// target a specific player.
+  final String opponentId;
   final String opponentName;
 }
 

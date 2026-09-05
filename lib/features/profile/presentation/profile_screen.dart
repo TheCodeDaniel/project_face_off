@@ -10,6 +10,7 @@ import '../../app_shell/presentation/nav_visibility_controller.dart';
 import 'leaderboard_screen.dart';
 import 'profile_providers.dart';
 import 'widgets/cosmetics_section.dart';
+import 'widgets/per_game_stats_sheet.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/settings_section.dart';
 import 'widgets/subscription_section.dart';
@@ -63,6 +64,12 @@ class ProfileScreen extends ConsumerWidget {
                     icon: HugeIcons.strokeRoundedAward01,
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              _NavCard(
+                icon: HugeIcons.strokeRoundedChartBreakoutSquare,
+                label: 'Stats by game',
+                onTap: () => PerGameStatsSheet.show(context, profile?.perGameStats ?? const {}),
               ),
               const SizedBox(height: 12),
               _NavCard(

@@ -61,6 +61,13 @@ class FakeFriendsRepository implements FriendsRepository {
   }
 
   @override
+  Future<void> sendRequestToPlayer(String playerId, String displayName) async {
+    // Same no-op-success shape as sendRequestByCode — there's no real
+    // recipient inbox to write into yet with only one simulated user.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+
+  @override
   Future<void> acceptRequest(String requestId) async {
     final request = _requests.firstWhere((r) => r.id == requestId);
     _requests.removeWhere((r) => r.id == requestId);
@@ -90,7 +97,7 @@ class FakeFriendsRepository implements FriendsRepository {
   @override
   Future<void> reportUser(String userId, ReportReason reason, String? details) async {
     // No moderation backend for v1 (master prompt Section 9) — a real
-    // implementation writes to a Firestore `reports` collection.
+    // implementation writes to the Postgres `reports` table.
     await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 }

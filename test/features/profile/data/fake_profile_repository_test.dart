@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:project_face_off/features/profile/data/fake_profile_repository.dart';
+import 'package:project_face_off/features/profile/domain/leaderboard_scope.dart';
 import 'package:project_face_off/features/profile/domain/purchase_result.dart';
 import 'package:project_face_off/features/profile/domain/subscription_tier.dart';
 
@@ -16,12 +17,40 @@ void main() {
     test('is seeded with a leaderboard and cosmetics', () async {
       final repo = FakeProfileRepository(displayName: 'Ama');
 
-      final leaderboard = await repo.watchLeaderboard().first;
+      final leaderboard = await repo.watchLeaderboard(LeaderboardScope.global).first;
       final cosmetics = await repo.watchCosmetics().first;
 
       expect(leaderboard, isNotEmpty);
       expect(cosmetics, isNotEmpty);
       expect(cosmetics.where((c) => c.equipped), hasLength(1));
+    });
+
+    test('watchLeaderboard(friends) is a strict subset of watchLeaderboard(global)', () async {
+      final repo = FakeProfileRepository(displayName: 'Ama');
+
+      final global = await repo.watchLeaderboard(LeaderboardScope.global).first;
+      final friends = await repo.watchLeaderboard(LeaderboardScope.friends).first;
+
+      expect(friends, isNotEmpty);
+      expect(friends.length, lessThan(global.length));
+      expect(friends.every((f) => global.any((g) => g.name == f.name)), isTrue);
+      // Matches FakeFriendsRepository's own seed: Kwesi/Naledi are friends
+      // there, Tunde is only a pending incoming request, not yet a friend.
+      expect(friends.any((e) => e.name == 'Tunde'), isFalse);
+    });
+
+    test('watchLeaderboard(regional) only includes players in the local player\'s own region', () async {
+      final repo = FakeProfileRepository(displayName: 'Ama');
+
+      final profile = await repo.watchProfile().first;
+      final global = await repo.watchLeaderboard(LeaderboardScope.global).first;
+      final regional = await repo.watchLeaderboard(LeaderboardScope.regional).first;
+
+      expect(regional, isNotEmpty);
+      expect(regional.length, lessThan(global.length));
+      // The local player ('Player') is always in their own regional board.
+      expect(regional.any((e) => e.name == 'Player'), isTrue);
+      expect(profile.region, isNotNull);
     });
 
     test('equipCosmetic swaps which owned cosmetic is equipped', () async {

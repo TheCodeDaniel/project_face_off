@@ -5,8 +5,10 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/lobby_palette.dart';
 import '../../../../core/widgets/app_icon.dart';
+import '../../../../core/widgets/match_found_screen.dart';
 import '../../domain/friend.dart';
 import '../friends_providers.dart';
+import 'game_picker_sheet.dart';
 import 'report_user_sheet.dart';
 
 /// Per-friend action sheet (master prompt Section 9): challenge to a private
@@ -54,7 +56,28 @@ class FriendActionsSheet extends ConsumerWidget {
               _ActionTile(
                 icon: HugeIcons.strokeRoundedBoxingGlove01,
                 label: 'Challenge to a private match',
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () async {
+                  // Captured before the await — GamePickerSheet.show shows
+                  // on top of this still-open actions sheet (both live on
+                  // the root Navigator), so this sheet's own context stays
+                  // valid throughout, but the Navigator reference is grabbed
+                  // up front anyway as the safer habit for any future edit
+                  // that reorders this.
+                  final rootNavigator = Navigator.of(context, rootNavigator: true);
+                  final choice = await GamePickerSheet.show(context);
+                  if (choice == null) return;
+                  rootNavigator.pop();
+                  rootNavigator.push(
+                    MaterialPageRoute(
+                      builder: (_) => MatchFoundScreen(
+                        matchId: 'private-${friend.id}',
+                        opponentId: friend.id,
+                        opponentName: friend.displayName,
+                        presetGameId: choice.gameId,
+                      ),
+                    ),
+                  );
+                },
               ),
               _ActionTile(
                 icon: HugeIcons.strokeRoundedFlag02,

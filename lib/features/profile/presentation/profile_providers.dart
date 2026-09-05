@@ -4,6 +4,7 @@ import '../../../core/widgets/podium_leaderboard.dart' show LeaderboardEntry;
 import '../../auth/presentation/auth_providers.dart';
 import '../data/fake_profile_repository.dart';
 import '../domain/cosmetic.dart';
+import '../domain/leaderboard_scope.dart';
 import '../domain/player_profile.dart';
 import '../domain/profile_repository.dart';
 import '../domain/subscription_package.dart';
@@ -21,8 +22,13 @@ final playerProfileProvider = StreamProvider<PlayerProfile>((ref) {
   return ref.watch(profileRepositoryProvider).watchProfile();
 });
 
-final leaderboardProvider = StreamProvider<List<LeaderboardEntry>>((ref) {
-  return ref.watch(profileRepositoryProvider).watchLeaderboard();
+/// Which scope the Leaderboard screen currently has selected — a plain
+/// `StateProvider` (small local UI state, not async) that the scope
+/// selector writes to and `leaderboardProvider` reads as its `.family` arg.
+final leaderboardScopeProvider = StateProvider<LeaderboardScope>((ref) => LeaderboardScope.global);
+
+final leaderboardProvider = StreamProvider.family<List<LeaderboardEntry>, LeaderboardScope>((ref, scope) {
+  return ref.watch(profileRepositoryProvider).watchLeaderboard(scope);
 });
 
 final cosmeticsProvider = StreamProvider<List<Cosmetic>>((ref) {

@@ -26,9 +26,11 @@ class FakeMatchmakingRepository implements MatchmakingRepository {
       return;
     }
 
+    final opponentName = _opponentNames[random.nextInt(_opponentNames.length)];
     yield MatchmakingFound(
       matchId: 'fake-match-${DateTime.now().microsecondsSinceEpoch}',
-      opponentName: _opponentNames[random.nextInt(_opponentNames.length)],
+      opponentId: 'bot-${opponentName.toLowerCase()}',
+      opponentName: opponentName,
     );
   }
 }

@@ -44,7 +44,7 @@ platform icon sets with `dart run flutter_launcher_icons` after changing it.
    inside a screen that's already on the root Navigator inherits it via plain `Navigator.of(context)`.
 10. **Timer-driven Riverpod controllers use `clock.now()` (package:clock), never raw
     `DateTime.now()`** — `package:fake_async`'s `fakeAsync()` fakes `package:clock`'s ambient clock
-    automatically (`withClock` under the hood), which is what makes `DuelController`'s cue/dodge/
+    automatically (`withClock` under the hood), which is what makes `FaceOffGameModule`'s cue/dodge/
     round-timeout `Timer`s deterministically testable in virtual time. Raw `DateTime.now()` would
     still return real wall-clock time inside a `fakeAsync` zone and silently break the test's timing
     assumptions. Pure domain logic (`DuelRoundEngine`) stays timestamp-agnostic regardless — it only
@@ -103,11 +103,13 @@ adopting the sweep — a moving highlight across an entire modal's background, b
 controls, read as more distracting than glossy at that scale; the effect is reserved for bounded
 tile/card/pill surfaces.
 
-## Duel game engine (the core of the app)
+## Duel game engine (Face Off, the first and reference game in the pool)
 
-- Best of 5 rounds, first to 3 wins.
-- Round state machine (`lib/features/duel/domain/round_state.dart`) is a sealed class:
-  `Neutral → CueArmed → CueFired → ResolvingRound → RoundResult → (next round | MatchResult)`.
+- Best of 5 rounds, first to 3 wins — this best-of-5 structure is now match-level, not
+  Face-Off-specific; see "Multi-game architecture" below.
+- Round state machine (`lib/features/games/face_off/domain/round_state.dart`) is a sealed class
+  describing a single round: `Neutral → CueArmed → CueFired → ResolvingRound → RoundResult`. It no
+  longer has a `MatchResult` variant — cross-round bookkeeping moved to `core/game_engine/`.
 - Crack detection runs continuously across all phases and overrides everything (instant loss);
   simultaneous cracks within 150ms → draw, replay round.
 - Cue delay is server/authoritative-seeded, 1000–4000ms. All timing decisions use the
@@ -118,9 +120,178 @@ tile/card/pill surfaces.
   tunable, implemented behind `RoundRules.dodgeEndsRoundOnSuccess` (default `false`) so it's a
   one-line flip during playtesting.
 - Round timeout (8s post cue-fire with no fire from either side) → draw.
-- State machine only ever consumes semantic events (`fireDetected`, `dodgeDetected`,
+- The round state machine only ever consumes semantic events (`fireDetected`, `dodgeDetected`,
   `crackDetected`) — never raw blendshape numbers. That separation is what makes it unit-testable
-  without a camera or Firebase (see `test/features/duel/domain/`).
+  without a camera or Firebase (see `test/features/games/face_off/domain/`).
+
+## Multi-game architecture (supersedes the original single-game scope)
+
+The app ships with a **pool of games** (`docs/face-off-multigame-plan.md` — read this before
+touching any game's architecture; it supersedes the single-game parts of the original master
+prompt), one of which is picked per match. v1 pool: **Face Off** (built), **Bow & Draw**, **Freeze**
+— build order is Face Off refactor → Bow & Draw → Freeze (only if time remains), per the plan doc's
+own Section 8. Only Face Off has a real module today.
+
+- **`GameModule`** (`lib/core/game_engine/game_module.dart`) is the contract every game implements:
+  `id`, `displayName`, `requiredLandmarkers`, a `roundOutcomes` stream, `startRound()`/
+  `resetRound()`/`dispose()`. `MatchController` only ever talks to this interface — it has zero
+  game-specific knowledge.
+- **`MatchController`** (`lib/core/game_engine/match_controller.dart`, provider
+  `matchControllerProvider`) is the game-agnostic best-of-5 orchestrator extracted from what used to
+  be `DuelController` — it owns scores, round number, the recap timer, connectivity-forfeit
+  handling, and deciding recap → next round vs. match complete (`MatchState`: `NoActiveMatchState` →
+  `PlayingRoundMatchState` → `RoundRecapMatchState` → `MatchCompleteMatchState`). It never touches a
+  game's own round-phase rules.
+- **`GamePool`** (`lib/core/game_engine/game_pool.dart`) is a **local, compiled** `GameId` enum +
+  `GameDefinition` list (id/displayName/requiredLandmarkers) — deliberately not a remote-fetched
+  catalog, per the plan's explicit v2 deferral. `implementedGameIds` is the subset with a real
+  module wired up (`{GameId.faceOff}` today); `pickRandomGameId()` only ever draws from that set, so
+  Quick Match can never route to an unbuilt game — Bow & Draw/Freeze need no other call-site change
+  when they ship, just an entry in `implementedGameIds` and a case in `createGameModule`.
+- **`createGameModule`** (`lib/core/game_engine/game_module_factory.dart`) is the one place in
+  `core/` that imports a game feature's own domain class (`FaceOffGameModule`) — a deliberate
+  exception to "core never imports a feature," since `core/game_engine/` acts as the composition
+  point for "which concrete module backs which pool entry," the same role `main.dart` already plays
+  wiring concrete feature screens into the generic app shell.
+- **Folder structure**: games live under `lib/features/games/<game_name>/` (Face Off was moved from
+  the old `lib/features/duel/` as a rename+refactor, not a rewrite — its round-state-machine rules
+  are untouched, only the best-of-5/forfeit bookkeeping moved out). `FaceOffGameModule`
+  (`lib/features/games/face_off/domain/face_off_game_module.dart`) is the piece `MatchController`
+  actually talks to — it wraps `FaceOffRoundEngine` (the trimmed, single-round-only version of the
+  old `DuelRoundEngine`) and owns the cue/dodge/round-timeout `Timer`s that used to live directly on
+  `DuelController`. It's a `ChangeNotifier` (not a Riverpod provider itself) so `FaceOffScreen` can
+  listen to its richer `roundState` via `ListenableBuilder`, while `MatchController` only ever sees
+  its coarser `roundOutcomes` stream.
+- **`LandmarkerType`** (`lib/core/game_engine/landmarker_type.dart`, `{face, hand}`) is what each
+  game declares via `requiredLandmarkers` — `core/gesture_engine/` (not yet built) will initialize
+  only the pipeline(s) the active game needs, per the plan's Section 3.4: don't run both landmarkers
+  all the time, that's wasted performance for no benefit.
+- **`MatchRoundOutcome`** (`lib/core/game_engine/match_round_outcome.dart`) is the generic
+  `{winnerId, reasonCode}` shape every `GameModule` reports through — `reasonCode` reuses the exact
+  snake_case vocabulary the original master prompt specified for Face Off's own reason codes
+  (`fired_first`/`false_start`/`cracked`/`simultaneous_crack`/`timeout`), so each game's own
+  presentation layer (`faceOffOutcomeMessage`) maps its codes to human-readable recap text without
+  `MatchController` ever needing to understand what a code means.
+- **Random game selection is a documented client-local stand-in for now**, same status as every
+  other pre-Firebase system in this app — the plan's Section 3.5 requires the real pick be
+  server-authoritative once a backend exists (so both clients agree on which game they're playing
+  rather than each independently randomizing); `pickRandomGameId()` is already the single call site
+  that'll need to change, nothing else.
+- **Friends/Profile impact** (multi-game plan Sections 4.1–4.3): now implemented — see below. The
+  `matches/{matchId}.gameId` field (Section 4.4) is still pending, since there's no real backend yet.
+
+## Bow & Draw and Freeze (multi-game plan Sections 2.2/2.3 — build order Steps 2 & 3)
+
+Both ship in the same pass as the `GameModule`/`MatchController` refactor's follow-through, each
+mirroring `FaceOffGameModule`'s exact shape (own round-only engine in `domain/`, a `GameModule`
+wrapper owning that game's `Timer`s, a screen + phase view + dev-harness controls in
+`presentation/`) — `core/game_engine/game_module_factory.dart` and `game_screen_factory.dart` now
+construct all three real games instead of throwing for the other two, and `implementedGameIds`
+includes all three, so Quick Match genuinely picks at random from the full pool.
+
+- **Bow & Draw** (`lib/features/games/bow_draw/`): round win condition is **first player to land a
+  clean hit wins outright** — chosen over "best shot placement within the whole window" per the
+  plan's own instruction to pick one and not over-plan a first pass; a shot's `power` (0.0-1.0,
+  simulating draw distance) within `DrawRules.hitTolerance` of a random per-round `targetPower`
+  hits. A miss doesn't end the round by itself — the other player can still land a clean hit — only
+  both players missing, or the window timing out with nobody landing a hit, draws the round.
+  `DevDrawControls` was originally three preset pull-power buttons per player; see "Game visual
+  layer & Hand Landmarker gesture engine" below for why it's now a continuous vertical-drag harness.
+- **Freeze** (`lib/features/games/freeze/`): structurally mirrors Face Off's crack-detection pattern
+  almost exactly — "first player to move loses, simultaneous moves within a jitter window draw" is
+  the same shape as "first player to crack loses, simultaneous cracks draw," right down to reusing
+  the same 150ms jitter-window constant and boundary semantics (a dedicated 149ms/151ms boundary
+  test, same as Face Off's own crack-window test). Declares `requiredLandmarkers: {}` — reuses
+  whichever landmarker(s) the match's other detection already has active rather than declaring its
+  own model, per the plan.
+- **Two real bugs found while wiring these up, both worth remembering as a shape of bug**:
+  1. **Guarded "arm" transitions silently no-op on round 2+.** `FaceOffRoundEngine.startNeutralPhase()`
+     unconditionally resets to `NeutralRoundState` regardless of current state — but the first
+     versions of `BowDrawRoundEngine.armRound()`/`FreezeRoundEngine.callFreeze()` were *guarded*
+     ("only fire from `NeutralDrawState`"/"only from `BuildingFreezeState`"), and neither module
+     called any reset before re-arming. Round 1 worked fine; every round after silently failed to
+     arm, since the engine was still sitting in the previous round's `*ResultState` and the guard
+     rejected the transition — the match just looked stuck. Fixed by adding an explicit,
+     unconditional `reset()` to both engines and calling it at the top of each module's
+     `startRound()`, matching `FaceOffRoundEngine`'s existing pattern. Caught by a `MatchController`
+     integration test that actually plays multiple rounds end-to-end, not a single-round test — the
+     lesson from the performance-tiering section applies here too: a test that only exercises round 1
+     can't catch a "breaks on round 2" bug.
+  2. **A `GameModule` could double-emit a round outcome.** `_resolveIfNeeded()` in all three modules
+     checked "has the round resolved?" but not "did I already emit for this resolution?" — so a
+     second trigger call arriving after the round had already resolved (state stuck at `*ResultState`
+     until the next `startRound()`) would walk through the same check a second time and push a
+     *second* `MatchRoundOutcome` for the same round, double-counting the score on `MatchController`.
+     Caught by a test that (deliberately, to prove a guaranteed hit regardless of the random target)
+     called `triggerShoot` three times in a row on `BowDrawGameModule` — the first shot resolves the
+     round, and the two harmless-looking follow-up calls each re-triggered emission. Fixed by adding
+     an `_emittedThisRound` flag to all three modules, set on emission and cleared in `startRound()`.
+  - **A related test-writing lesson, not a library bug**: an early version of the `MatchController`
+    Freeze test used one large fixed `async.elapse()` sized to safely clear the *build-up* delay
+    (randomized up to 4.5s) before triggering a move — but Freeze's *freeze window* is only 3s long,
+    nested inside that same wait. For a small random build-up draw (e.g. 1.5s), build-up (1.5s) +
+    window (3s) = 4.5s, so a single elapse comfortably sized for the outer delay could overshoot
+    clean through the inner window's own shorter timeout, timing the round out as a draw before the
+    test ever got to act — a genuinely flaky test (failed roughly 1 run in 6, matching the fraction
+    of the random range where build-up < elapse − window). Fixed by elapsing in small polling steps
+    and stopping the instant the expected intermediate state is reached, instead of one large jump —
+    worth remembering for any future test with two nested randomized/fixed timers of different
+    lengths.
+
+## Dynamic game routing (multi-game plan Section 3.5/4.6)
+
+- **`buildGameScreen(GameId, {opponentName})`** (`core/game_engine/game_screen_factory.dart`) is the
+  same deliberate composition-root exception as `createGameModule` — the one place besides it that
+  imports a game feature's own presentation class. `MatchFoundScreen` and the Friends challenge flow
+  both call this instead of hardcoding a single game's screen.
+- **`MatchFoundScreen` moved from `features/play/presentation/` to `core/widgets/`** — it had zero
+  actual Play-tab-specific coupling (its `matchId` param is just passed through, unused today) and
+  is now the shared pre-match sequence for *both* Quick Match and a direct friend challenge; leaving
+  it under `features/play/` would have meant the Friends feature importing another feature's
+  internals to reach it (engineering rule 1). It now: resolves the match's `GameId` exactly once
+  (`presetGameId` if given, e.g. from a friend's specific pick, else `pickRandomGameId()`), briefly
+  shows a `GameRulesCard` (`core/widgets/`, using each `GameDefinition.quickRules` one-liner) for
+  ~1.8s, then plays the existing `DuelVsTransition`, then hands off via `buildGameScreen`.
+- **Every game screen now takes a `GameId gameId` constructor param** instead of picking its own
+  game internally (the original Face Off migration had `FaceOffScreen` call `pickRandomGameId()`
+  itself, which was fine when it was the only game but would have let two different screens disagree
+  on what was actually being played once more games existed). Rematch reuses `widget.gameId` rather
+  than re-rolling — "rematch" reads as "play this game again," not "surprise me with a different
+  one," a deliberate product call.
+- **The match-chrome widgets were promoted from `features/games/face_off/presentation/widgets/` to
+  `core/widgets/`** since they were already 100% game-agnostic in content (`MatchHeader`,
+  `QuitMatchDialog`, `ReconnectingBanner`, and the result screen — renamed `FaceOffMatchResultView` →
+  `GameMatchResultView` since it only ever reads the generic `MatchCompleteMatchState`) — sharing
+  them avoids reimplementing the identical widget three times as Bow & Draw and Freeze needed the
+  exact same chrome.
+
+## Friends & Profile multi-game touches (multi-game plan Sections 4.1/4.2)
+
+- **`GamePickerSheet`** (`lib/features/friends/presentation/widgets/`): tapping "Challenge to a
+  private match" now shows a picker (one tile per `implementedGameIds` entry, plus "Surprise me")
+  instead of doing nothing. Safe to offer a specific-game choice here — unlike Quick Match, a direct
+  1:1 challenge has no shared queue to fragment. Returns a typed `GamePickerChoice` (`specific(id)`
+  vs `surpriseMe()`) rather than a bare nullable `GameId?`, so "surprise me" (itself a real choice,
+  which resolves to a null `presetGameId`) can't be confused with "the sheet was dismissed without a
+  choice" (a genuinely null result) at the call site.
+  - **Context-after-`await` gotcha**: the picker is shown *on top of* the still-open actions sheet
+    (both live on the root Navigator via `useRootNavigator: true`) rather than popping the actions
+    sheet first — the `Navigator` reference needed after the `await GamePickerSheet.show(...)` is
+    still captured up front regardless, as the safer habit for any future edit that reorders this
+    and pops before awaiting, which would otherwise risk using a deactivated widget's context.
+- **Profile per-game stats** (`PlayerProfile.perGameStats`, a `Map<GameId, GameStats>`): the
+  existing aggregate fields (`winStreak`/`totalMatches`/`winRatePercent`) are untouched and still
+  drive the main stat grid, no UI redesign there per the plan's own instruction. Reachable via a new
+  "Stats by game" row that opens `PerGameStatsSheet` — a bottom sheet, not a new top-level screen,
+  per "keep this simple." A game with no seeded entry (Bow & Draw/Freeze, until real match history
+  exists) reads as "No matches yet" rather than needing an explicit zero record.
+- **Onboarding**: one line of copy on the Play tab ("Every match is a surprise — a new game each
+  time") rather than teaching all three games' rules up front — each match's own `GameRulesCard`
+  carries that specific game's quick rules instead. The three-step showcaseview tour is unchanged.
+- **Cosmetics tagging**: `Cosmetic.applicableGameId` (`GameId?`) — `null` means universal (applies
+  across any game), non-null means game-specific (e.g. `c5`, "Gold Arrows," tagged
+  `GameId.bowDraw`). Purely a data tag for now, same one-time-purchase mechanics either way — no
+  cosmetics-tile UI change, per the plan's own "no structural change needed" call.
 
 ## Onboarding & Auth (Section 6)
 
@@ -252,7 +423,7 @@ tile/card/pill surfaces.
   per-tab-back-stack rule), starts the queue on `initState`, and switches on `MatchmakingState` —
   cancel is always reachable, timeout gets a friendly retry/cancel prompt, never a bare spinner.
 - On `MatchmakingFound`, `MatchFoundScreen` plays the already-built `DuelVsTransition` (Section 4)
-  then hands off to `DuelScreen` (rest of Section 8, now built — see below).
+  then hands off to `FaceOffScreen` (rest of Section 8, now built — see below).
 - `onlineCountProvider` and `MatchHistoryTeaser` are placeholders (fluctuating fake count / empty
   state) until Firebase presence tracking and match-history write-back exist — both documented
   inline. Note the online-count `Timer.periodic` is cancelled explicitly via `ref.onDispose`; an
@@ -261,6 +432,12 @@ tile/card/pill surfaces.
   "tick forever" provider added later).
 
 ## Live duel screen (rest of Section 8)
+
+**Paths below are historical** — this section predates the multi-game refactor ("Multi-game
+architecture" above). `DuelController`/`DuelRoundEngine`/`DuelScreen` described here now correspond
+to `FaceOffGameModule` + `MatchController` / `FaceOffRoundEngine` / `FaceOffScreen` under
+`lib/features/games/face_off/` and `lib/core/game_engine/` — the rules, gotchas, and bug writeups
+below are all still accurate, just under new names/locations.
 
 - `DuelController` (`lib/features/duel/presentation/`) is the Riverpod `Notifier` that drives one
   live match against `DuelRoundEngine`: arms/fires the cue on a real `Timer`, schedules the
@@ -402,6 +579,28 @@ Real bugs found from screenshots after Section 10 shipped, all fixed in one pass
   feature keeps in sync, not off `FriendsRepository` directly.
 - Leaderboard ranking metric is **total round wins**, documented explicitly on `ProfileRepository`
   per the master prompt's own instruction not to leave the scoring metric implicit.
+- **Leaderboard scope filter** (`LeaderboardScope`, `lib/features/profile/domain/`): Global,
+  Regional, or Friends, chosen via `LeaderboardScopeSelector` — a segmented pill with a sliding
+  accent highlight rather than a dropdown (a small fixed option set, so tap-to-switch reads faster
+  than opening a menu), and it deliberately reuses `FloatingNavBar`'s own "selected item grows an
+  accent-colored pill" motif (same 220ms `Curves.easeOutCubic`) instead of inventing a new
+  interaction language for lobby chrome. The sliding-highlight position is computed generically from
+  `LeaderboardScope.values.length`, so adding Regional after Global/Friends already shipped needed
+  no changes to the selector widget itself, just a new enum value and label. `watchLeaderboard()`
+  takes the scope (`leaderboardProvider` is a `.family` keyed on it, with `leaderboardScopeProvider`
+  holding the current selection).
+- **`Region`** (`lib/features/profile/domain/region.dart`) is a small curated country-granularity
+  enum, not free text — `PlayerProfile.region` is the local player's own region, seeded as a fixed
+  value (`Region.unitedStates`) for now. A real implementation would derive this from device locale
+  or IP geolocation at sign-up; this is a documented stand-in, same status as everything else
+  pending Firebase. `LeaderboardScreen` shows "Ranking players in {region}" under the selector when
+  Regional is active, reading `playerProfileProvider` for the label.
+- `FakeProfileRepository`'s Friends and Regional filters are both hardcoded overlaps with the global
+  seed (`_friendNames` mirrors `FakeFriendsRepository`'s own seed; `_entryRegions` assigns each
+  seeded name a `Region`, keeping 'Player' consistent with `_seedProfile`'s own `region`) — a
+  fake-data-only stand-in, same reasoning as `friendsCount` above. The real implementation resolves
+  both server-side (Friends by joining the caller's actual friends list, Regional by the player's
+  stored `Region`), never a client-side read of `FriendsRepository`.
 - `equipCosmetic` is a genuine no-op when given an unowned/unknown cosmetic id — worth calling out
   because the first version of this method had a real bug: it looped over *owned* cosmetics setting
   `equipped: c.id == cosmeticId`, which for an unowned target id meant **every** owned cosmetic
@@ -601,8 +800,198 @@ of the app builds and runs today, but not live-wired:
   on-device validation of blendshape output (`browInnerUp`, `jawOpen`, mouth-curvature) before
   committing to a package vs. hand-rolled channel, per the master prompt's own instruction not to
   assume.
+- **MediaPipe Hand Landmarker** — same status as Face Landmarker above, see "Game visual layer &
+  Hand Landmarker gesture engine" below: `HandGestureEngine`/`DrawGestureDetector` define the real
+  contract and detection logic, `FakeHandGestureEngine` backs it until on-device validation of
+  `hand_landmarker.task` confidence thresholds happens and the real platform channel gets built.
+- **Supabase** (Postgres) — needs a real project + `supabase db push` against
+  `supabase/migrations/20260101000000_initial_schema.sql`, and the Firebase-UID-via-JWT-claim RLS
+  pattern verified against Supabase's live docs. See "Backend architecture — hybrid split" below;
+  `MatchRepository`/`FakeMatchRepository` and the profile/friends repositories are written against
+  this pending backend the same way every other feature is written against Firebase.
 - **Lottie onboarding illustrations** — no design assets provided; see `OnboardingIllustration`
   above for the drop-in point once real `.json` files exist.
+
+## Post-match flow (`docs/face-off-postmatch-flow-plan.md`)
+
+Corrects/extends the results screen implied but underspecified in the original build prompt —
+continuous-play, Omegle/Monkey-style: the fastest action after a match is always "find someone
+new," and anything that continues with the *same* opponent is a deliberate, consenting action.
+
+- **`GameMatchResultView`** (`core/widgets/`, shared by every game per the multi-game plan) is now a
+  `ConsumerStatefulWidget` with three distinct actions plus a report/block shortcut, not just
+  "Rematch"/"Back to Play": **Next** (primary — instant re-queue into normal Quick Match, the exact
+  same `MatchmakingScreen` push `PlayScreen`'s own Quick Match button uses, just a second entry
+  point), **Rematch** (secondary — an ephemeral live request to *this specific opponent*, Section
+  3), **Add Friend**/**Report**/**Block** (small tertiary actions, deliberately one tap away here
+  rather than buried in the Friends tab, since post-match is exactly when someone is most likely to
+  want to report bad behavior), plus a low-emphasis "Back to Play" text button.
+- **`opponentId` now flows end-to-end** — `MatchmakingFound`/`FakeMatchmakingRepository` (Play tab),
+  `MatchFoundScreen`, `buildGameScreen`, and all three game screens (`FaceOffScreen`/
+  `BowDrawScreen`/`FreezeScreen`) all carry a real opponent id now, distinct from
+  `MatchController`'s own internal `'me'`/`'opponent'` round-engine slot labels (which never leave
+  the local game engine). This is what lets Rematch/Add Friend/Report/Block target the actual
+  player instead of a display-name string. `MatchmakingFound.opponentId` is a documented
+  client-local stand-in (`'bot-${name}'`) for now, same status as every other pre-Firebase system.
+- **Rematch requests** (`core/game_engine/rematch/`): `RematchRepository`/`FakeRematchRepository`
+  follow the same fake-backend pattern as every other feature — the real implementation is a
+  lightweight ephemeral Realtime DB node (`/rematchRequests/{matchId}`), not Firestore, cleared on
+  accept/decline/timeout. `FakeRematchRepository` simulates the "opponent" responding after a random
+  delay (70% accept), and with a documented `1/6` chance never responds at all — simulating the
+  opponent having left the results screen already, which is what actually resolves as a timeout
+  (v1 is in-app-only: no push notification wakes a backgrounded opponent to answer). `RematchController`
+  (a plain `AutoDisposeNotifier`, not tied to any one game) owns the live countdown
+  (`MatchRules.rematchRequestTimeout`, 18s) via a `Timer.periodic`, using `clock.now()` per
+  engineering rule 10 so it's `fake_async`-testable. Accepting skips the matchmaking queue entirely
+  and goes straight into a new `MatchFoundScreen` (still re-randomizing the game, not replaying the
+  same one — the plan's documented v1 default) — declining/timing out revert to the normal button
+  state after a few seconds so the message is actually readable, not "no error state, no dead end."
+- **`FriendsRepository.sendRequestToPlayer(playerId, displayName)`** is the new Add Friend entry
+  point — reuses the exact same no-op-success shape as `sendRequestByCode` (still
+  no real recipient inbox to write into with only one simulated user), just skips the code-exchange
+  step since the opponent's identity is already known from the match. No Friends-tab schema change.
+- **Idle-results-screen timeout** (`MatchRules.resultsScreenIdleTimeout`, 35s): a player who takes
+  no action at all is auto-returned to the Play tab home — a plain `Timer` started in
+  `GameMatchResultView`'s `initState`, cancelled (never restarted) the first time *any* of its
+  actions fires. Distinct from, and much longer than, the 18s rematch-request timeout.
+- **Consolidated timeout table** (plan Section 4) — the existing constants already matched the
+  plan's own numbers with no changes needed: matchmaking queue 20s, in-round no-input 8s
+  (`RoundRules.roundTimeout`), mid-match reconnect grace 20s (`MatchRules.offlineForfeitTimeout`).
+  Only the rematch-request and idle-results-screen timeouts were new.
+- **Two real navigation bugs found and fixed while wiring this up**, both the same shape as an
+  earlier one in `FriendActionsSheet`'s challenge flow: `_handleNext`/`_handleRematchAccepted`
+  originally called `Navigator.of(context).popUntil(...)` and then immediately reused the same
+  `context` for a second `Navigator.of(context, rootNavigator: true)` lookup — `popUntil` can
+  deactivate that context synchronously, making the second lookup unsafe to assume works. Fixed by
+  capturing the root navigator reference *before* the pop, same pattern as the Friends fix. Caught
+  by a real widget test, not by inspection.
+- **Widget-test gotcha, same shape as the product tour's**: a widget test that pushes a real
+  `MaterialPageRoute` from inside a `ref.listen` callback triggered by an async stream event
+  (rather than a direct user gesture) can hit a `fake_async`/`AnimationController` ticker-timing
+  assertion (`elapsedInSeconds >= 0.0`) that's specific to the test harness's synthetic clock, not a
+  real app defect. Worked around by testing that specific transition at the controller level
+  (`RematchController`'s own unit tests) instead of forcing it through a full widget-level
+  navigation assertion. Relatedly: `pumpAndSettle()` must never be used once navigation lands on a
+  screen with its own continuously-rescheduling timers (a live match's round timers, or even just
+  `MatchmakingSearchingView`'s pulse) — fixed-duration `pump()`s only past that point, consistent
+  with the existing product-tour lesson.
+
+## Backend architecture — hybrid split (`docs/face-off-game-ui-backend-guideline.md`)
+
+Corrects the original all-Firebase plan implied by the master prompt. Firebase Realtime DB stays
+for everything ephemeral/latency-sensitive/high-frequency — matchmaking queue, in-match event log,
+rematch-request nodes, presence/online-status — **unchanged**, do not move any of that to Postgres.
+Everything durable/relational moves to Postgres via Supabase instead:
+
+- **`users`** — profile data (display name, avatar, tier/level, region). `id` is the Firebase UID
+  (a `text` primary key, not a Postgres-generated `uuid`) — there is deliberately no second,
+  parallel Supabase Auth identity system; Auth stays exactly Firebase Auth (Google/Apple). Row-level
+  security keys off that same UID via a custom JWT claim (`auth.jwt() ->> 'firebase_uid'`) —
+  illustrative only in the initial migration, not verified against a live project; confirm the exact
+  current Supabase pattern for wiring a Firebase UID into RLS against their live docs before trusting
+  it, their auth-integration guidance changes.
+- **`user_game_stats`** (one row per user per game) plus a **`user_aggregate_stats`** view computing
+  the weighted-average win rate across games, rather than a duplicated, separately-maintained
+  aggregate row — the per-game rows stay the single source of truth.
+- **`friendships`/`friend_requests`/`blocks`/`reports`** — moved off the original Firestore plan
+  specifically because they're relational data with real query needs ("has this user blocked that
+  user," "list pending requests") a relational model handles more naturally than documents.
+  `friendships` uses a composite `(user_id_a, user_id_b)` primary key with `check (user_id_a <
+  user_id_b)` so a friendship is represented exactly once regardless of who added whom. Blocking
+  enforcement server-side is now a Postgres RLS policy check at matchmaking time (not a Cloud
+  Function, per the original plan) — still out of scope until Supabase exists, same as before.
+- **`matches`** — durable match history, written **once a match concludes**, via the new
+  `MatchRepository`/`FakeMatchRepository` (`lib/core/game_engine/`) — closes a gap every earlier
+  section of this file flagged as "the documented trigger point... not wired up yet." Live
+  round-by-round event data (fire/dodge/crack, draw/release, etc.) stays in Realtime DB and is never
+  migrated here; this table only ever holds the final summary (`MatchResultRecord`: game id,
+  opponent id/label, win/loss/draw, both scores, concluded-at timestamp). `MatchController` calls
+  `saveMatchResult` at both points it can reach `MatchCompleteMatchState` — the normal best-of-5 win
+  path in `_advanceAfterRecap`, and the offline-forfeit path in `handleConnectivityChange` — so a
+  forfeited match gets recorded too, not just a clean finish. `startMatch` now takes a real `matchId`
+  and `realOpponentId` (threaded in from each game screen's existing constructor params, from the
+  post-match flow work) alongside `MatchController`'s own internal `'me'`/`'opponent'` round-engine
+  slot labels, which still never leave the local engine. `MatchHistoryTeaser` (Play tab) now reads
+  `FakeMatchRepository.watchRecentMatches()` instead of a hardcoded empty state.
+- **`cosmetics_owned`/`subscriptions_cache`** — entitlement records, `subscriptions_cache.tier` kept
+  in sync via a RevenueCat webhook once that's wired up, never trusted purely from client-reported
+  purchase state.
+
+Initial schema lives at `supabase/migrations/20260101000000_initial_schema.sql` (apply with
+`supabase db push` once a project exists). Every repository doc comment across `matchmaking`
+(stays Realtime DB), `profile`/`friends` (now Postgres), and `rematch` (stays Realtime DB) was
+updated to reflect this split — check a feature's own `domain/*_repository.dart` doc comment for
+which backend it targets before writing new data-layer code against it.
+
+## Game visual layer & Hand Landmarker gesture engine (`docs/face-off-game-ui-backend-guideline.md`)
+
+Shape/tracking correctness first, art polish last and explicitly optional for v1 — the guideline's
+own priority order. Real native Hand Landmarker (camera-based ML, needs platform-channel work and a
+physical device) is out of reach in this environment, same boundary as Face Landmarker/Firebase/
+RevenueCat throughout this project — built behind the same clean-interface-plus-fake pattern instead.
+
+- **`lib/core/gesture_engine/`** gained a Hand Landmarker mirror of the existing Face Landmarker
+  pattern: `HandLandmarkFrame` (raw pinch-point position + hand-openness, plus a `handDetected` flag
+  so occlusion debounces via a consecutive-frame streak instead of a wall-clock timer inside the
+  isolate — the same "reduce to what the game actually needs" simplification `BlendshapeFrame`
+  already applies), `HandGestureEngine` (the platform-channel contract, not implemented — needs
+  on-device validation of `hand_landmarker.task`/`numHands: 1`/`LIVE_STREAM` confidence thresholds
+  first, per the master prompt's own instruction not to assume), a sealed `DrawGestureEvent`
+  hierarchy (`DrawUpdate(power)`/`DrawReleased(power)`/`DrawCancelled`), named `DrawGestureThresholds`,
+  an isolate-based `DrawGestureDetector` (establishes an at-rest anchor from a streak of low-movement
+  frames, tracks distance-from-anchor as power, and detects a real release as a rapid distance drop
+  **combined with** a hand-openness spread increase — distance dropping alone could just be the hand
+  relaxing), and `FakeHandGestureEngine` for tests/dev. Not yet wired into `BowDrawGameModule`'s
+  round-outcome resolution — same documented gap as `SemanticGestureDetector` never being wired into
+  `FaceOffGameModule` (`DevGestureControls`/`DevDrawControls` bypass it entirely until a real camera
+  exists).
+- **`BowDrawGameModule.updateDrawPower(playerId, power)`** is new, distinct from `triggerShoot` — a
+  continuous live-power update the bow rig's draw-back animation reads directly, kept outside
+  `BowDrawRoundEngine`'s own state since it's a presentation value, not something that affects
+  round-outcome logic (only a shot's final released power via `triggerShoot` does). `DevDrawControls`
+  became a vertical-drag harness (was three preset buttons) specifically so even the no-camera dev
+  path exercises this continuous signal — the guideline calls the pull-gesture feedback loop "the
+  single most important visual feedback loop" in Bow & Draw, so the dev harness should demonstrate it
+  continuously too, not just simulate three discrete outcomes.
+- **`LayeredDepthScene`** (`core/widgets/`) is the shared HD-2D-style depth layering primitive —
+  flat sprites (gradients/shapes, no raster assets) at different static scales with one shared, slow,
+  continuous parallax sway, explicitly **not** real 3D/dynamic lighting/particle effects per the
+  guideline's guardrail. `BowDrawRangeBackdrop` (sky/stars, hill silhouettes, ground) and
+  `FreezeStageBackdrop` (frost-sparkle sky, ice-pillar silhouettes) both use it rather than each game
+  growing its own depth-layering plumbing — Freeze's stage deliberately differs only in shape/color,
+  reinforcing a colder "hold still" register against Bow & Draw's outdoor range.
+- **`BowRig`** (`bow_draw/presentation/widgets/`) is a first-person bow-and-arrow rig, bottom-of-
+  screen, whose string pull-back is driven **directly** by live draw power with no
+  `AnimationController` smoothing in between — the guideline's "single most important visual feedback
+  loop," so there's no lag between a real draw gesture and what renders.
+- **`BowDrawTarget`** pulses and swaps to its accent color only once the shot window is actually
+  open — the exact power a shot must land near is still never shown as a number, same "don't reveal
+  the precise target" instinct as Face Off's hidden cue.
+- **`FloatingLabelLayer`** (`core/widgets/`) is the shared world-space floating-text primitive —
+  spawns at a point, drifts upward while fading (alpha baked into the text color, never a bare
+  `Opacity` widget, consistent with the `Opacity`-audit lesson from the performance pass — this sits
+  alongside other independently-animating siblings in the same frame). Similar energy to
+  `ActivityToast` but transient and positioned at the triggering event rather than a fixed screen
+  edge. Bow & Draw spawns `HIT!`/`MISS`/`DRAW`; Freeze spawns `BUSTED!`/`SAFE!` — both driven off the
+  same `ref.listen(matchControllerProvider, ...)` callback that already shows the recap
+  `ActivityToast`, using each screen's own `LayoutBuilder`-tracked visual-area size to approximate
+  the target/stage's on-screen position (good enough for a floating callout; not worth a `GlobalKey`
+  round-trip just to spawn a label near it).
+- **`PlayerHudCapsule`** (`core/widgets/`) replaces `MatchHeader`'s old plain face-avatar row — a
+  simple capsule HUD (portrait ring + wins-progress bar) reusing `CoinBadge`'s pill-shaped capsule
+  language, per the guideline's explicit ask, mirrorable via a `reversed` flag so the local player's
+  capsule sits top-left with its portrait facing inward toward the header's center, and the
+  opponent's sits top-right as a mirror image, portrait also facing inward. Since `MatchHeader` is
+  already the one shared
+  match-chrome component all three games use (see "Dynamic game routing" above), this single change
+  updated Face Off, Bow & Draw, and Freeze's HUDs at once — the guideline's own instruction that
+  consistency across the three games' HUDs matters more than any one of them looking distinct.
+- Both `BowDrawPhaseView`/`FreezePhaseView` widget tests use fixed-duration `pump()`s, never
+  `pumpAndSettle()` — `LayeredDepthScene`'s sway and `BowDrawTarget`'s pulse are both continuous,
+  indefinitely-repeating animations, same documented gotcha as the product tour and `ShimmerCard`.
+- Verified live on the iOS Simulator via the established throwaway-debug-entry-point pattern
+  (`lib/_debug_..._preview.dart`, deleted after) for both the Bow & Draw visual layer and the new
+  capsule HUD.
 
 ## Build order (from master prompt, keep committing per section)
 
@@ -614,8 +1003,20 @@ camera + networking)** → **Friends (done, against a fake friends repo)** →
 package-picker/purchase UI flow built against the fake repo, pending real API keys)** →
 **offline handling (done)** → **performance pass (done — device-capability tiering, a
 RepaintBoundary/Opacity audit; on-device profiling and gesture-pipeline fps validation are pending
-the real gesture engine and a physical device, both out of scope until the games section)**.
+the real gesture engine and a physical device, both out of scope until the games section)** →
+**multi-game expansion (done — Face Off/Bow & Draw/Freeze, see "Multi-game architecture" above)** →
+**post-match flow (done — see "Post-match flow" above)**.
 
-Every master-prompt section is now built. What's left: the games section (real camera + MediaPipe
-gesture engine, replacing `DevGestureControls`) and wiring a real backend (Firebase, per your
-decision) in place of every feature's fake repository.
+Every master-prompt section is now built, and the scope has grown twice more: per
+`docs/face-off-multigame-plan.md`, **the entire multi-game expansion (Sections 1-8 of that plan) is
+done** — `GameModule`/`MatchController`, all three games (Face Off, Bow & Draw, Freeze) playable
+end-to-end via their own dev-harness controls, dynamic per-game screen routing, the Friends
+game-picker challenge flow, Profile per-game stats, the onboarding copy line, and cosmetics
+game-tagging; and per `docs/face-off-game-ui-backend-guideline.md`, **the Postgres/Supabase data
+layer, the Hand Landmarker gesture-engine interface, and all three games' visual layers (layered
+depth backdrops, the bow rig, floating labels, the shared capsule HUD) are done** — see "Backend
+architecture — hybrid split" and "Game visual layer & Hand Landmarker gesture engine" above. What's
+left: the real camera + MediaPipe gesture engines (Face **and** Hand Landmarker, replacing every
+game's own `Dev*Controls` harness), and wiring a real backend in place of every feature's fake
+repository — Firebase for auth/matchmaking/signaling/rematch/presence, Supabase for
+profile/friends/match-history/entitlements, per the hybrid split above.

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/gradient_scaffold.dart';
+import '../../../core/widgets/match_found_screen.dart';
 import '../domain/matchmaking_state.dart';
-import 'match_found_screen.dart';
 import 'matchmaking_controller.dart';
 import 'widgets/matchmaking_searching_view.dart';
 import 'widgets/matchmaking_timeout_view.dart';
@@ -14,9 +14,10 @@ import 'widgets/matchmaking_timeout_view.dart';
 /// paints *underneath* `FloatingNavBar`, so a full-screen route pushed there
 /// would render behind the nav bar instead of covering it (the same bug
 /// class as the modal-sheet fix on `HowToPlaySheet`). Everything this
-/// screen hands off to (`MatchFoundScreen`, `DuelScreen`) inherits the root
-/// Navigator automatically via ordinary `Navigator.of(context)` calls, since
-/// by the time they're pushed this screen's subtree already lives there.
+/// screen hands off to (`MatchFoundScreen`, the matched game's own screen)
+/// inherits the root Navigator automatically via ordinary
+/// `Navigator.of(context)` calls, since by the time they're pushed this
+/// screen's subtree already lives there.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 
@@ -42,7 +43,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen> {
       if (next is MatchmakingFound) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => MatchFoundScreen(matchId: next.matchId, opponentName: next.opponentName),
+            builder: (_) =>
+                MatchFoundScreen(matchId: next.matchId, opponentId: next.opponentId, opponentName: next.opponentName),
           ),
         );
       }
